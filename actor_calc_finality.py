@@ -5,13 +5,14 @@ from scipy.stats import skellam
 
 # Define parameters
 e = 5
-f = 0.3
+f = 0.25
 num_variables = 905 # length of history
+chain_health = 4.8/5 # mean precentage of blocks in an epoch compared to the expectation from a perfect network
 c = 904 # current position (end of history)
-s = c - 40 # slot in history for which finality is calculated
+s = c - 90 # slot in history for which finality is calculated
 
 # Generate the chain of Poisson random variables
-chain = np.random.poisson(0.9*e, num_variables)
+chain = np.random.poisson(chain_health*e, num_variables)
 
 ## Calculate Lf
 # Initialize an array to store the probabilities of Lf
@@ -22,12 +23,12 @@ probabilities_Lf = np.zeros(max_kL + 1)
 
 # Calculate BpZ given chain for each of the relevant past subchains
 cumulative_loc_i = 0
-max_look_back = 30 # for running time purpose. Needs to be justified theoretically!
+max_look_back = 25 # for running time purpose. Needs to be justified theoretically!
 for i in range(s, s - max_look_back, -1):
 #for i in range(s, c - 900, -1):
     print("i="+str(i))
     cumulative_loc_i += chain[i]
-    max_relevant_BpZ = (s - i + 1) * e * 4 + 2 * e# more than this, the probability is negligible
+    max_relevant_BpZ = (s - i + 1) * e * 4 + 2 * e # more than this, the probability is negligible
     _, probabilities_based_on_BpZ = hf.probability_of_BpZ_given_chain(chain, i - 1, s, e, f, max_relevant_BpZ//2, max_relevant_BpZ//2)
     # Calculate Pr(Lf=k) for each value of k
     for k in values_of_kL:
@@ -39,7 +40,7 @@ probabilities_Lf[0] += 1 - tot_Lf_prob # The lead is never negative. Thus, we mo
 
 ## Calculate Bf
 # Define the values of for which you want to calculate Pr(Bf=k)
-max_kB = 302  # Adjust the range as needed
+max_kB = max(100, (c - s) * e * 2)  # Adjust the range as needed
 [values_of_kB, probabilities_Bf] = hf.probability_of_BpZ_given_chain(chain, s, c, e, f, max_kB//2, max_kB//2)
 
 ## Calculate Mf
@@ -65,27 +66,12 @@ Pr_h_gt_0 = 1 - poisson.cdf(0, lambda_h)
 # calculate lambda_Z lower bound
 lambda_Z = Pr_h_gt_0 * ( lambda_h*expected_value_of_x + expected_value_of_y )
 
-max_kM = 80     # Maximum value of k for plot. k is the good advantage that the adversary needs to catch up with.
+max_kM = 300     # Maximum value of k for plot. k is the good advantage that the adversary needs to catch up with.
 max_i = 100     # Maximum value of epochs for the calculation (after which the probabilities become negligible)
 
 # Initialize an array to store the probabilities of Mf
 probabilities_Mf = np.zeros(max_kM + 1)
 values_of_kM = range(max_kM + 1)
-
-# # Calculate Pr(Mf = k) for each value of k
-# for k in values_of_kM:
-#     max_probability = 0
-#
-#     # Calculate Pr(Mf_i = k) for each i and find the maximum
-#     for i in range(1, max_i + 1):
-#         lambda_b_i = i * e * f
-#         lambda_Z_i = i * lambda_Z
-#         prob_Mf_i = skellam.pmf(k, lambda_b_i, lambda_Z_i)
-#         max_probability = max(max_probability, prob_Mf_i)
-#
-#     probabilities_Mf[k] = max_probability
-# tot_Mf_prob = sum(probabilities_Mf)
-# probabilities_Mf[0] += 1 - tot_Mf_prob
 
 # Calculate Pr(Mf_i = k) for each i and find the maximum
 for i in range(1, max_i + 1):
@@ -100,7 +86,7 @@ probabilities_Mf[0] += 1 - tot_Mf_prob # probabilities_Mf[0] sums the probabilit
 
 ## Calculate error probability upper bound "BAD event: Pr(Lf + Bf + Mf > k)"
 # Define the range of values for k you wish to consider. k is the good advantage and Pr(Lf + Bf + Mf > k) is the probability of error given the observation of this good advantage
-max_k = 200
+max_k = 500
 values_of_k = np.arange(0, max_k)  # Adjust the range as needed
 
 # Initialize an array to store the probabilities of BAD given a k good-advantage

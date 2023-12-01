@@ -1,50 +1,99 @@
 import numpy as np
+import matplotlib.pyplot as plt
 import helper_functions as hf
-
-# Define parameters
-e = 5
-f = 0.3
-num_variables = 905 # length of history
-c = 904 # current position (end of history)
-s = c - 20 # slot in history for which finality is calculated
-
-# Generate the chain of Poisson random variables
-chain = np.random.poisson(0.9*e, num_variables)
+from scipy.stats import poisson
+from scipy.stats import norm
 
 
-values_of_BpZ = []
-probabilities_BpZ = []
-for i in range(5):
-    # Define the values of Z and B for which we wish to calculate
-    max_z = e * 5 * (i+1) + 20  # Adjust the range as needed
-    max_b = e * 5 * (i+1) + 20  # Adjust the range as needed
+def plot_poisson_ccdf(lambda_val, x_max=None):
+    """
+    Plots the CCDF of a Poisson random variable with a given lambda value.
 
-    # Define the section of interest
-    start_epoch = s - 10 * i - 1
-    end_epoch = s
+    Parameters:
+    lambda_val (float): The lambda (mean) of the Poisson distribution.
+    x_max (int, optional): The maximum x value for the plot. Defaults to None.
+    """
+    if x_max is None:
+        x_max = int(lambda_val + 10 * np.sqrt(lambda_val))  # A default heuristic
 
-    [tmp_values_of_BpZ, tmp_probabilities_BpZ] = hf.probability_of_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b)
-    values_of_BpZ.append(tmp_values_of_BpZ)
-    probabilities_BpZ.append(tmp_probabilities_BpZ)
-    print(i)
+    # Generate x values and calculate the CDF
+    x_values = np.arange(0, x_max + 1)
+    cdf_values = poisson.cdf(x_values, lambda_val)
 
-## Plot the probabilities
-# Plot the probability of BpZ
-import matplotlib.pyplot as plt
+    # Calculate the CCDF as 1 - CDF
+    ccdf_values = 1 - cdf_values
 
-import matplotlib.pyplot as plt
+    # Plot the CCDF
+    plt.figure(figsize=(10, 6))
+    plt.plot(x_values, ccdf_values, marker='o', linestyle='-')
+    plt.title(f'CCDF of a Poisson({lambda_val}) Random Variable')
+    plt.xlabel('x')
+    plt.ylabel('CCDF (log scale)')
+    plt.yscale('log')
+    plt.grid(True)
+    plt.show()
 
-# Example lists with 10 arrays
+def plot_normal_ccdf(mean, variance):
+    # Standard deviation from variance
+    std_dev = np.sqrt(variance)
 
-# Create 10 subplots
-fig, axs = plt.subplots(1, 5, figsize=(15, 6))
-fig.tight_layout()
+    # Generate a range of values for which we will plot the CCDF
+    x = np.linspace(mean - 4 * std_dev, mean + 4 * std_dev, 1000)
 
-for i in range(5):
-    ax = axs[i]
+    # Calculate the CCDF (1 - CDF)
+    ccdf = 1 - norm.cdf(x, loc=mean, scale=std_dev)
 
-    # Plot probabilities_BpZ[i] as a function of values_of_BpZ[i]
-    ax.plot(values_of_BpZ[i], probabilities_BpZ[i])
-    ax.set_title(f'Plot {i + 1}')
+    # Find where the CCDF reaches 10^-10
+    critical_value = norm.ppf(1 - 10 ** -10, loc=mean, scale=std_dev)
 
-plt.show()
+    # Create the plot
+    plt.figure(figsize=(10, 6))
+    plt.plot(x, ccdf, label="CCDF")
+    plt.axhline(y=10 ** -10, color='r', linestyle='--', label="CCDF = $10^{-10}$")
+    plt.axvline(x=critical_value, color='g', linestyle='--', label=f"Critical value at {critical_value:.2f}")
+    plt.yscale('log')  # Log scale for better visibility
+    plt.title("Complementary Cumulative Distribution Function (CCDF) of a Normal Distribution")
+    plt.xlabel("Value")
+    plt.ylabel("CCDF (log scale)")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+def plot_conditional_poisson_distribution(lambda_val, c):
+    # Calculate the conditional probabilities for k >= c
+    conditional_probs = {}
+    k_values = range(int(c-1), int(max(lambda_val,c) * 2) + 10)
+    expected_value = 0
+    sanity = 0.0
+    for k in k_values:
+        prob = hf.conditional_poisson_probability(lambda_val, k, c)
+        expected_value += k * prob
+        conditional_probs[k] = prob
+        sanity += prob
+
+    print(f"The expected value of the conditional distribution: {expected_value}")
+    print(f"sanity check: {sanity}")
+
+    # Plotting
+    plt.bar(conditional_probs.keys(), conditional_probs.values(), color='blue')
+    plt.xlabel('k')
+    plt.ylabel('P(X = k | X ≥ '+str(c)+')')
+    plt.title(f'Conditional Poisson Distribution (λ = {lambda_val})')
+    plt.xticks(list(k_values))
+    plt.show()
+
+# # Example usage plot_poisson_ccdf
+# lambda_val = 30*2.5  # Replace with your desired lambda value
+# plot_poisson_ccdf(lambda_val, 30 * 4.5)
+
+# # Example usage plot_normal_ccdf
+# mean=2.5*30
+# variance=3*30
+# print("expected: "+str(4.5*30))
+# plot_normal_ccdf(mean, variance)  # mean (x) = 0, variance (y) = 1
+
+# Example usage plot_conditional_poisson_distribution
+lambda_val = 5*30
+chain_health = 1.2
+c = chain_health * lambda_val
+plot_conditional_poisson_distribution(lambda_val, c)
