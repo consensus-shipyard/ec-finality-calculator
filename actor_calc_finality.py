@@ -5,7 +5,7 @@ from scipy.stats import skellam
 
 # Define parameters
 e = 5
-f = 0.25
+f = 0.3
 num_variables = 905 # length of history
 chain_health = 4.8/5 # mean precentage of blocks in an epoch compared to the expectation from a perfect network
 c = 904 # current position (end of history)

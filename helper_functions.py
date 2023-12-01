@@ -75,3 +75,15 @@ def probability_of_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, m
             joint_prob = probability_of_B_given_T(lambda_H, b, z + num_of_observed_blocks) * pr_of_z_given_chain
             probabilities_BpZ[b_p_z] += joint_prob
     return [values_of_BpZ, probabilities_BpZ]
+
+
+
+def find_closest(array, target_val):
+    # Calculate the absolute difference with the target value
+    differences = np.abs(array - target_val)
+
+    # Find the index of the smallest difference
+    index_of_closest = np.argmin(differences)
+
+    # Return the closest value
+    return index_of_closest
