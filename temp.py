@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import helper_functions as hf
 from scipy.stats import poisson
 from scipy.stats import norm
+import validator_calc_finality as vf
+
 
 
 def plot_poisson_ccdf(lambda_val, x_max=None):
@@ -93,7 +95,54 @@ def plot_conditional_poisson_distribution(lambda_val, c):
 # plot_normal_ccdf(mean, variance)  # mean (x) = 0, variance (y) = 1
 
 # Example usage plot_conditional_poisson_distribution
-lambda_val = 5*30
-chain_health = 1.2
-c = chain_health * lambda_val
-plot_conditional_poisson_distribution(lambda_val, c)
+# lambda_val = 5*30
+# chain_health = 1.2
+# c = chain_health * lambda_val
+# plot_conditional_poisson_distribution(lambda_val, c)
+
+import pandas as pd
+
+# Load the CSV file
+nov = r'C:\Users\sgore\Downloads\orphan_block_count_november.csv'
+mar = r'C:\Users\sgore\Downloads\blocks_count_from_march.csv'
+df = pd.read_csv(mar)  # Replace 'your_file.csv' with your actual file name
+
+# Adjust 'height' to start from zero
+average = df['block_counts'].mean()
+print("length is: " + str(len(df['height'])))
+print("average block count is: " + str(average))
+
+
+# Parameters
+subseq_length = 905
+
+# Calculate the rolling mean with a window size of 900
+rolling_means = df['block_counts'].rolling(window=subseq_length).mean()
+
+# Find the start position of the subsequence with the lowest average
+min_mean_index = rolling_means.idxmin()
+
+# Extract the subsequence
+lowest_avg_subsequence = df['block_counts'][min_mean_index:min_mean_index + subseq_length]
+
+# Print or process the subsequence
+min_average = lowest_avg_subsequence.mean()
+
+print("min_average block count is: " + str(min_average))
+
+
+
+chain = lowest_avg_subsequence.to_numpy()
+e = 5
+f = 0.3
+c = len(chain)-1 # current position (end of history)
+s = c - 30
+
+
+ans1 = vf.validator_calc_finality(e, f, chain, c, s)
+print("the error probability1 is: " + str(ans1))
+
+ans2 = vf.validator_calc_finality(e, f, chain, c, s-5)
+print("the error probability2 is: " + str(ans2))
+
+

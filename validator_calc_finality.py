@@ -13,9 +13,11 @@ chain_health = 4.5/5 # mean precentage of blocks in an epoch compared to the exp
 c = 904 # current position (end of history)
 s = c - 30 # slot in history for which finality is calculated
 
-def validator_calc_finality(e, f, num_variables, chain_health, c, s):
+chain = np.random.poisson(chain_health * e, num_variables)
+
+
+def validator_calc_finality(e, f, chain, c, s):
     # Generate the chain of Poisson random variables
-    chain = np.random.poisson(chain_health * e, num_variables)
 
     ## Calculate Lf
     # Initialize an array to store the probabilities of Lf
@@ -135,8 +137,8 @@ def validator_calc_finality(e, f, num_variables, chain_health, c, s):
     return error_probabilities[good_ADV]
 
 
-ans = validator_calc_finality(e, f, num_variables, chain_health, c, s)
-print(ans)
+# ans = validator_calc_finality(e, f, chain, c, s)
+# print(ans)
 
 
 

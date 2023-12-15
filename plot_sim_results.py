@@ -33,24 +33,3 @@ def plot_results_with_trendline(filename):
 # Plot the results with trend line
 plot_results_with_trendline('individual_simulation_results.csv')
 
-# # Plotting the results directly from saved data
-# def plot_results(filename):
-#     with open(filename, 'r') as file:
-#         reader = csv.reader(file)
-#         next(reader)  # Skip the header row
-#         x_values, y_values = [], []
-#         for row in reader:
-#             x_values.append(float(row[0]))  # Assuming param1 is convertible to float
-#             y_values.append(float(row[1]))
-#
-#     plt.scatter(x_values, y_values, alpha=0.7)  # alpha for better visibility if points overlap
-#     plt.xscale('linear')  # or 'log' if param1 should be on a logarithmic scale
-#     plt.yscale('log')
-#     plt.xlabel('chain fill rate')
-#     plt.ylabel('Error probability')
-#     plt.title('Finality values for different fill-rates after 30 epochs')
-#     plt.grid(True)
-#     plt.show()
-#
-# # Plot the results
-# plot_results('individual_simulation_results.csv')
