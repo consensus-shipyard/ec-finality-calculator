@@ -14,18 +14,19 @@ def evaluate_finality_of_s_after_dd_epochs(sub_chain, s, dd=30):
 
 
 # Load the dataset
-mar = r'C:\Users\sgore\Downloads\blocks_count_from_march.csv' # Replace with your actual file path
-df = pd.read_csv(mar)
+# mar = r'C:\Users\sgore\Downloads\blocks_count_from_march.csv' # Replace with your actual file path
+nov = r".\Evaluation_results\raw_data\orphan_block_count_november.csv"
+df = pd.read_csv(nov)
 
 # Parameters
 subseq_length = 904  # (maximal) length of relevant history
-chunk_size = 3000  # Number of entries to process before saving to a new file
+chunk_size = 1500  # Number of entries to process before saving to a new file
 dd = 30  # number of delay (settlement) epochs
-data_name = "mar"  # where is the data coming from
+data_name = "nov"  # where is the data coming from
 
 
 # Iterate over the dataset and process in chunks
-for chunk_start in range(5000 - subseq_length, len(df), chunk_size):
+for chunk_start in range(6500 - subseq_length, len(df), chunk_size):
     output_file = f"./Evaluation_results/results_files/evaluation_of_results_{data_name}_chunk_{chunk_start // chunk_size + 1}_depth_{str(dd)}.csv"
     with open(output_file, 'w') as file:
         # Write header

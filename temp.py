@@ -128,7 +128,7 @@ lowest_avg_subsequence = df['block_counts'][min_mean_index:min_mean_index + subs
 # Print or process the subsequence
 min_average = lowest_avg_subsequence.mean()
 
-print("min_average block count is: " + str(min_average))
+print("min_average block count is: " + str(min_average) + " at position " + str(min_mean_index))
 
 
 

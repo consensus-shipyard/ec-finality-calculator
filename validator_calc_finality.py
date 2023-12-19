@@ -126,7 +126,8 @@ def validator_calc_finality(e, f, chain, c, s):
                     min(b, len(cumulative_sum_Bf) - 1)] * sum_Mf_ge_k_min_l_min_b
         error_probabilities[k] = sum_Lf_ge_k + double_sum
 
-    good_ADV = sum(chain[s:c])
+    good_ADV = int(sum(chain[s:c]))
+    # print("good_ADV = " + str(good_ADV))
     # print("observed chain from epoch-" + str(s) + " till epoch-" + str(c) + " contains " + str(good_ADV) + " blocks.")
     # print("sanity check: the sum of Lf=" + str(sum(probabilities_Lf)))
     # print("sanity check: the sum of Bf=" + str(sum(probabilities_Bf)))
