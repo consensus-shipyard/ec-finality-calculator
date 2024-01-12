@@ -8,7 +8,7 @@ def evaluate_finality_of_s_after_dd_epochs(sub_chain, s, dd=30):
     f = 0.3  # portion of adversary to tolerate
     c = s + dd  # position of evaluation (dd epochs after the tipset of interest)
 
-    err_prob = vf.validator_calc_finality(e, f, sub_chain, c, s)
+    err_prob = vf.validator_calc_finality(sub_chain, e, f, c, s)
     return err_prob
 
 
