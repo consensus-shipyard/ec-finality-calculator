@@ -17,6 +17,10 @@ def evaluate_finality_of_s_after_dd_epochs(sub_chain, s, dd=30):
 # mar = r'C:\Users\sgore\Downloads\blocks_count_from_march.csv' # Replace with your actual file path
 nov = r".\Evaluation_results\raw_data\orphan_block_count_november.csv"
 df = pd.read_csv(nov)
+df.fillna(0, inplace=True)
+df = df.convert_dtypes()
+
+print(df.dtypes)
 
 # Parameters
 subseq_length = 904  # (maximal) length of relevant history

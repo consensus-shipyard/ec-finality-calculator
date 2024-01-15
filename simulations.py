@@ -5,7 +5,7 @@ import csv
 # Define your simulation function here
 def run_simulation(chain_health, depth):
     # Your simulation code
-    result = vf.validator_calc_finality(5, 0.3, 905, chain_health, 904, 904-depth)
+    result = vf.validator_calc_finality(chain_health, 5, 0.3, 905, 900)
     return result
 
 # Define your parameter sets
