@@ -174,7 +174,7 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: int, byzantine_f
         pr_error[k] = sum_Lf_ge_k + double_sum
     
     # The observed chain has added weight equal to number of blocks since added
-    observed_added_weight = int(sum(chain[target_epoch:current_epoch]))
+    observed_added_weight = sum(chain[target_epoch:current_epoch])
 
     # Get the probability of the adversary overtaking the observed weight
     # The conservative upper may exceed 1 in limit cases, so we cap the output.
