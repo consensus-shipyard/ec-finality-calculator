@@ -20,8 +20,6 @@ df = pd.read_csv(nov)
 df.fillna(0, inplace=True)
 df = df.convert_dtypes()
 
-print(df.dtypes)
-
 # Parameters
 subseq_length = 904  # (maximal) length of relevant history
 chunk_size = 1500  # Number of entries to process before saving to a new file
