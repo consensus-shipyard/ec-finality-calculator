@@ -35,6 +35,8 @@ def actor_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine_fra
     """
     Compute the probability that a previous blockchain tipset gets replaced.
 
+    This code is EXPERIMENTAL and extremely slow. It is not part of our FRC.
+
     Parameters:
     - chain (list[int]): List of block counts per epoch.
     - blocks_per_epoch (float): Expected number of blocks per epoch.
