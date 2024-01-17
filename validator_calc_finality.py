@@ -1,14 +1,14 @@
 import numpy as np
 import scipy.stats as ss
 
-def validator_calc_finality(chain: list[int], blocks_per_epoch: int, byzantine_fraction: float, 
+def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
                             current_epoch: int, target_epoch: int) -> float:
     """
     Compute the probability that a previous blockchain tipset gets replaced.
 
     Parameters:
     - chain (list[int]): List of block counts per epoch.
-    - blocks_per_epoch (int): Expected number of blocks per epoch.
+    - blocks_per_epoch (float): Expected number of blocks per epoch.
     - byzantine_fraction (float): Upper bound on the fraction of malicious nodes in the network.
     - current_epoch (int): Current epoch.
     - target_epoch (int): Epoch for which finality is to be calculated.
@@ -24,7 +24,7 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: int, byzantine_f
     # Max k for which to calculate Pr(Lf=k)
     max_k_L = 100
     # Max k for which to calculate Pr(Bf=k)
-    max_k_B = (int) ((current_epoch - target_epoch) * blocks_per_epoch)
+    max_k_B = (int)((current_epoch - target_epoch) * blocks_per_epoch)
     # Max k for which to calculate Pr(Mf=k)
     max_k_M = 100
     # Maximum number of epochs for the calculation (after which the pr become negligible)
@@ -99,7 +99,7 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: int, byzantine_f
 
     # Calculate E[Z]
     exp_Z = 0.0
-    for k in range(0, 4 * blocks_per_epoch):  # Range stems from the distribution's moments
+    for k in range(0, (int) (4 * blocks_per_epoch)):  # Range stems from the distribution's moments
         # Poisson(k=k, lambda=rate_adv_blocks, location=0)
         pmf = ss.poisson.pmf(k, rate_malicious_blocks, 0)
         exp_Z += ((rate_honest_blocks + k) / (2 ** k)) * pmf
@@ -197,7 +197,6 @@ def main() -> None:
 
     # Run calculator and print error probability 
     print(validator_calc_finality(chain, e, f, c, s))
-
 
 if __name__ == "__main__":
     main()
