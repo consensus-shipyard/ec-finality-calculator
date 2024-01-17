@@ -2,7 +2,7 @@ import numpy as np
 import scipy.stats as ss
 
 # Calculate the conditional probability P(T = t | T >= c) for a Poisson random variable T.
-def conditional_poisson_probability(lambda_T, t, c):
+def pr_poisson_conditional(lambda_T, t, c):
     if t < c:
         return 0.0  # Probability is 0 if t < c
     prob_T_ge_c = 1.0 - ss.poisson.cdf(c - 1, lambda_T)  # P(T >= c)
@@ -12,7 +12,7 @@ def conditional_poisson_probability(lambda_T, t, c):
     return prob_T_equals_t_and_T_ge_c / prob_T_ge_c
 
 # calculate the probability of BpZ = B + Z base on the joint distribution of (B,Z | chain)
-def probability_of_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
+def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
     max_BpZ = max_b + max_z
     values_of_BpZ = np.arange(0, max_BpZ + 1)
     probabilities_BpZ = np.zeros(max_b + max_z + 1)
@@ -23,7 +23,7 @@ def probability_of_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, m
     num_of_observed_blocks = sum(chain[start_epoch:end_epoch])
 
     for z in range(max_z + 1):
-        pr_of_z_given_chain = conditional_poisson_probability(lambda_T, z + num_of_observed_blocks, num_of_observed_blocks)
+        pr_of_z_given_chain = pr_poisson_conditional(lambda_T, z + num_of_observed_blocks, num_of_observed_blocks)
         for b in range(max_b + 1):
             b_p_z = b + z
             joint_prob = ss.poisson.pmf(z + num_of_observed_blocks - b, lambda_H,) * pr_of_z_given_chain
@@ -80,7 +80,7 @@ def actor_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine_fra
     for i in range(target_epoch, target_epoch - max_i_L, -1):
         sum_chain_blocks_i += chain[i]
         max_relevant_BpZ = (int) (((target_epoch - i + 1) * 4 + 2) * blocks_per_epoch) # more than this, pr is negligible
-        _, probabilities_based_on_BpZ = probability_of_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
+        _, probabilities_based_on_BpZ = pr_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
         
         # Calculate Pr(Lf=k) for each value of k
         for k in range(0, max_k_L + 1):
@@ -95,7 +95,7 @@ def actor_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Compute Bf
     ####################
 
-    [values_of_kB, pr_Bf] = probability_of_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
+    [values_of_kB, pr_Bf] = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
 
 
     ####################

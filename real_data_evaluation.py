@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
-import validator_calc_finality as vf
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+ 
+import validator_calc_finality as vf
 
 ####################
 # Parameters
