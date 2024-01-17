@@ -93,5 +93,5 @@ for dataset in datasets:
 
     # Plot and export results
     fig = plot_err_prob_and_block_cnt(df_chain, df_results, settlement_epochs)
-    fig.savefig(f'./evaluation/figures/{dataset}.png')
+    fig.savefig(figure_path)
 
