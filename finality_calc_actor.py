@@ -1,10 +1,41 @@
 import numpy as np
 import scipy.stats as ss
 
-def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
+# Calculate the conditional probability P(T = t | T >= c) for a Poisson random variable T.
+def pr_poisson_conditional(lambda_T, t, c):
+    if t < c:
+        return 0.0  # Probability is 0 if t < c
+    prob_T_ge_c = 1.0 - ss.poisson.cdf(c - 1, lambda_T)  # P(T >= c)
+    if prob_T_ge_c == 0.0:
+        return 0.0  # Avoid division by zero
+    prob_T_equals_t_and_T_ge_c = ss.poisson.pmf(t, lambda_T)  # P(T = t and T >= c)
+    return prob_T_equals_t_and_T_ge_c / prob_T_ge_c
+
+# calculate the probability of BpZ = B + Z base on the joint distribution of (B,Z | chain)
+def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
+    max_BpZ = max_b + max_z
+    values_of_BpZ = np.arange(0, max_BpZ + 1)
+    probabilities_BpZ = np.zeros(max_b + max_z + 1)
+
+    num_epochs = end_epoch - start_epoch
+    lambda_T = e * num_epochs
+    lambda_H = (1-f) * lambda_T
+    num_of_observed_blocks = sum(chain[start_epoch:end_epoch])
+
+    for z in range(max_z + 1):
+        pr_of_z_given_chain = pr_poisson_conditional(lambda_T, z + num_of_observed_blocks, num_of_observed_blocks)
+        for b in range(max_b + 1):
+            b_p_z = b + z
+            joint_prob = ss.poisson.pmf(z + num_of_observed_blocks - b, lambda_H,) * pr_of_z_given_chain
+            probabilities_BpZ[b_p_z] += joint_prob
+    return [values_of_BpZ, probabilities_BpZ]
+
+def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
                             current_epoch: int, target_epoch: int) -> float:
     """
     Compute the probability that a previous blockchain tipset gets replaced.
+
+    This code is EXPERIMENTAL and extremely slow. It is not part of our FRC.
 
     Parameters:
     - chain (list[int]): List of block counts per epoch.
@@ -24,13 +55,13 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
     # Max k for which to calculate Pr(Lf=k)
     max_k_L = 100
     # Max k for which to calculate Pr(Bf=k)
-    max_k_B = (int)((current_epoch - target_epoch) * blocks_per_epoch)
+    max_k_B = (int) ((current_epoch - target_epoch) * blocks_per_epoch)
     # Max k for which to calculate Pr(Mf=k)
     max_k_M = 100
-    # Maximum number of epochs for the calculation (after which the pr become negligible)
+    # Maximum number of epochs for the L calculation (after which the pr become negligible)
+    max_i_L = 25 # for running time purpose. Needs to be justified theoretically!        
+    # Maximum number of epochs for the M calculation (after which the pr become negligible)
     max_i_M = 100
-    # Threshold at which the probability of an event is considered negligible
-    negligible_threshold = 10**-15
 
 
     ####################
@@ -39,33 +70,24 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
     rate_malicious_blocks = blocks_per_epoch * byzantine_fraction # upper bound
     rate_honest_blocks = blocks_per_epoch * (1-byzantine_fraction) # lower bound
 
-
-    ####################
-    # Compute Lf
-    ####################
-
-    # Initialize an array to store Pr(Lf=k)
+    ## Calculate Lf
+    # Initialize an array to store the probabilities of Lf
     pr_Lf = [0] * (max_k_L + 1)
 
-    # Calculate Pr(Lf=k) for each value of k
-    for k in range(0, max_k_L + 1):
-        sum_expected_adversarial_blocks_i = 0
-        sum_chain_blocks_i = 0
+    # Calculate BpZ given chain for each of the relevant past subchains
+    sum_chain_blocks_i = 0
 
-        # Calculate Pr(Lf_i = k_i) for each epoch i, starting from epoch `s` under evaluation
-        # and walking backwards to the last final tipset
-        for i in range(target_epoch, current_epoch - 900, -1):
-            sum_expected_adversarial_blocks_i += rate_malicious_blocks
-            sum_chain_blocks_i -= chain[i - 1]
-            # Poisson(k=k, lambda=sum_expected_adversarial_blocks_i, location=sum_chain_blocks_i)
-            pr_Lf_i = ss.poisson.pmf(k, sum_expected_adversarial_blocks_i, sum_chain_blocks_i)
-            # Take Pr(Lf=k) as the maximum over all i
-            pr_Lf[k] = max(pr_Lf[k], pr_Lf_i)
+    # Calculate Pr(Lf_i = k_i) for each epoch i, starting from epoch `s` under evaluation
+    # and walking backwards to the last final tipset
+    for i in range(target_epoch, target_epoch - max_i_L, -1):
+        sum_chain_blocks_i += chain[i]
+        max_relevant_BpZ = (int) (((target_epoch - i + 1) * 4 + 2) * blocks_per_epoch) # more than this, pr is negligible
+        _, probabilities_based_on_BpZ = pr_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
         
-        # Break if pr_Lf[k] becomes negligible
-        if k > 1 and pr_Lf[k] < negligible_threshold and pr_Lf[k] < pr_Lf[k-1]:
-            pr_Lf = pr_Lf[:(max_k_L:=k)+1]
-            break
+        # Calculate Pr(Lf=k) for each value of k
+        for k in range(0, max_k_L + 1):
+            prob_Lf_i = 0 if k + sum_chain_blocks_i >= len(probabilities_based_on_BpZ) else probabilities_based_on_BpZ[k + sum_chain_blocks_i]
+            pr_Lf[k] = max(pr_Lf[k], prob_Lf_i)
 
     # As the adversarial lead is never negative, the missing probability is added to k=0
     pr_Lf[0] += 1 - sum(pr_Lf)
@@ -75,18 +97,7 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
     # Compute Bf
     ####################
 
-    # Initialize an array to store Pr(Bf=k)
-    pr_Bf = [0] * (max_k_B + 1)
-
-    # Calculate Pr(Bf=k) for each value of k
-    for k in range(0, max_k_B + 1):
-        # Poisson(k=k, lambda=sum_expected_adversarial_blocks, location=0)
-        pr_Bf[k] = ss.poisson.pmf(k, (current_epoch - target_epoch + 1) * rate_malicious_blocks, 0)
-
-        # Break if pr_Bf[k] becomes negligible
-        if k > 1 and pr_Bf[k] < negligible_threshold and pr_Bf[k] < pr_Bf[k-1]:
-            pr_Bf = pr_Bf[:(max_k_B:=k)+1]
-            break
+    [values_of_kB, pr_Bf] = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
 
 
     ####################
@@ -119,17 +130,8 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
             # Skellam(k=k, mu1=lambda_b_i, mu2=lambda_Z_i)
             prob_Mf_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
 
-            # Break if prob_Mf_i becomes negligible
-            if prob_Mf_i < negligible_threshold and prob_Mf_i < pr_Mf[k]:
-                break # Note: to be checked, but breaking here didn't change output in simulation
-
             # Take Pr(Mf=k) as the maximum over all i
             pr_Mf[k] = max(pr_Mf[k], prob_Mf_i)
-
-        # Break if pr_Mf[k] becomes negligible
-        if k > 1 and pr_Mf[k] < negligible_threshold and pr_Mf[k] < pr_Mf[k-1]:
-            pr_Mf = pr_Mf[:(max_k_M:=k)+1]
-            break
 
     # pr_Mf[0] collects the probability of the adversary never catching up in the future.
     pr_Mf[0] += 1 - sum(pr_Mf)
@@ -143,10 +145,10 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
     # The sum of each max_k provides a strict upper bound, but one could pick a fraction.
     max_k = max_k_L + max_k_B + max_k_M 
 
-    # Initialize an array to store the pr of BAD given a k good-advantage
+    # Initialize an array to store the probabilities of BAD given a k good-advantage
     pr_error = [0] * max_k
 
-    # Calculate cumulative sums for Lf, Bf, and Mf
+    # Calculate cumulative sums for Lf, Bf and Mf
     cumsum_Lf = np.cumsum(pr_Lf)
     cumsum_Bf = np.cumsum(pr_Bf)
     cumsum_Mf = np.cumsum(pr_Mf)
@@ -172,14 +174,14 @@ def validator_calc_finality(chain: list[int], blocks_per_epoch: float, byzantine
                 double_sum += pr_Lf[min(l, max_k_L)] * pr_Bf[min(b, max_k_B)] * sum_Mf_ge_k_min_l_min_b
 
         pr_error[k] = sum_Lf_ge_k + double_sum
-    
+
+
     # The observed chain has added weight equal to number of blocks since added
     observed_added_weight = sum(chain[target_epoch:current_epoch])
 
     # Get the probability of the adversary overtaking the observed weight
     # The conservative upper may exceed 1 in limit cases, so we cap the output.
     return min(pr_error[observed_added_weight], 1.0)
-
 
 # Run with example data if file executed
 def main() -> None:
@@ -196,7 +198,7 @@ def main() -> None:
     chain = rng.poisson(chain_health * e, num_epochs)
 
     # Run calculator and print error probability 
-    print(validator_calc_finality(chain, e, f, c, s))
+    print(finality_calc_actor(chain, e, f, c, s))
 
 if __name__ == "__main__":
     main()

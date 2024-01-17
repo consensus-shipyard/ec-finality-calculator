@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
  
-import validator_calc_finality as vf
+import finality_calc_validator as vf
 
 ####################
 # Parameters
@@ -85,7 +85,7 @@ for dataset in datasets:
         target_epoch = len(subchain) - 1 - settlement_epochs
 
         # Calculate error probability
-        pr_err.append(vf.validator_calc_finality(subchain, blocks_per_epoch, byzantine_fraction, target_epoch + settlement_epochs, target_epoch))
+        pr_err.append(vf.finality_calc_validator(subchain, blocks_per_epoch, byzantine_fraction, target_epoch + settlement_epochs, target_epoch))
 
     # Create dataframe and export to csv
     df_results = pd.DataFrame({'Height': df_chain['height'][sample_indices], 'Error': pr_err})

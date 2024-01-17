@@ -17,16 +17,16 @@ Work in progress. This provides the prototype implementation for an upcoming Fil
 This project uses numpy, scipy, pandas, and matplotlib.
 
 ## Content
- - `validator_calc_finality.py`: **the EC Finality Calculator**
- - `read_data_evaluation.py`: evaluation script that runs the EC finality calculator on chain data
+ - `finality_calc_validator.py`: **the EC Finality Calculator** given full information available to nodes
+ - `real_data_evaluation.py`: evaluation script that runs the EC finality calculator on chain data
  - `evaluation`: evaluation data and results using default settings
- - `actor_calc_finality.py`: *experimental* calculator in more restrictive actor context
+ - `finality_calc_actor.py`: *experimental* calculator in more restrictive actor context
 
 ## Usage
 
-* Run `validator_calc_finality.py` to try the calculator on generated data
+* Run `finality_calc_validator.py` to try the calculator on generated data
 * Run `real_data_evaluation.py` to try the calculator on Filecoin chain traces
-* Call `validator_calc_finality()` using your chosen data and parameters
+* Call `finality_calc_validator()` using your chosen data and parameters
 
 ## License
 
