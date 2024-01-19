@@ -68,7 +68,7 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Preliminaries
     ####################
     rate_malicious_blocks = blocks_per_epoch * byzantine_fraction # upper bound
-    rate_honest_blocks = blocks_per_epoch * (1-byzantine_fraction) # lower bound
+    rate_honest_blocks = blocks_per_epoch - rate_malicious_blocks # lower bound
 
     ## Calculate Lf
     # Initialize an array to store the probabilities of Lf

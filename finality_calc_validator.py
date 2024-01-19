@@ -37,7 +37,7 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     # Preliminaries
     ####################
     rate_malicious_blocks = blocks_per_epoch * byzantine_fraction # upper bound
-    rate_honest_blocks = blocks_per_epoch * (1-byzantine_fraction) # lower bound
+    rate_honest_blocks = blocks_per_epoch - rate_malicious_blocks # lower bound
 
 
     ####################
