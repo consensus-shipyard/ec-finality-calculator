@@ -21,11 +21,11 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     # Parameters
     ####################
 
-    # Max k for which to calculate Pr(Lf=k)
+    # Max k for which to calculate Pr(L=k)
     max_k_L = 100
-    # Max k for which to calculate Pr(Bf=k)
+    # Max k for which to calculate Pr(B=k)
     max_k_B = (int)((current_epoch - target_epoch) * blocks_per_epoch)
-    # Max k for which to calculate Pr(Mf=k)
+    # Max k for which to calculate Pr(M=k)
     max_k_M = 100
     # Maximum number of epochs for the calculation (after which the pr become negligible)
     max_i_M = 100
@@ -41,56 +41,56 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
 
 
     ####################
-    # Compute Lf
+    # Compute L
     ####################
 
-    # Initialize an array to store Pr(Lf=k)
-    pr_Lf = [0] * (max_k_L + 1)
+    # Initialize an array to store Pr(L=k)
+    pr_L = [0] * (max_k_L + 1)
 
-    # Calculate Pr(Lf=k) for each value of k
+    # Calculate Pr(L=k) for each value of k
     for k in range(0, max_k_L + 1):
         sum_expected_adversarial_blocks_i = 0
         sum_chain_blocks_i = 0
 
-        # Calculate Pr(Lf_i = k_i) for each epoch i, starting from epoch `s` under evaluation
+        # Calculate Pr(L_i = k_i) for each epoch i, starting from epoch `s` under evaluation
         # and walking backwards to the last final tipset
         for i in range(target_epoch, current_epoch - 900, -1):
             sum_expected_adversarial_blocks_i += rate_malicious_blocks
             sum_chain_blocks_i -= chain[i - 1]
             # Poisson(k=k, lambda=sum_expected_adversarial_blocks_i, location=sum_chain_blocks_i)
-            pr_Lf_i = ss.poisson.pmf(k, sum_expected_adversarial_blocks_i, sum_chain_blocks_i)
-            # Take Pr(Lf=k) as the maximum over all i
-            pr_Lf[k] = max(pr_Lf[k], pr_Lf_i)
+            pr_L_i = ss.poisson.pmf(k, sum_expected_adversarial_blocks_i, sum_chain_blocks_i)
+            # Take Pr(L=k) as the maximum over all i
+            pr_L[k] = max(pr_L[k], pr_L_i)
         
-        # Break if pr_Lf[k] becomes negligible
-        if k > 1 and pr_Lf[k] < negligible_threshold and pr_Lf[k] < pr_Lf[k-1]:
-            pr_Lf = pr_Lf[:(max_k_L:=k)+1]
+        # Break if pr_L[k] becomes negligible
+        if k > 1 and pr_L[k] < negligible_threshold and pr_L[k] < pr_L[k-1]:
+            pr_L = pr_L[:(max_k_L:=k)+1]
             break
 
     # As the adversarial lead is never negative, the missing probability is added to k=0
-    pr_Lf[0] += 1 - sum(pr_Lf)
+    pr_L[0] += 1 - sum(pr_L)
 
 
     ####################
-    # Compute Bf
+    # Compute B
     ####################
 
-    # Initialize an array to store Pr(Bf=k)
-    pr_Bf = [0] * (max_k_B + 1)
+    # Initialize an array to store Pr(B=k)
+    pr_B = [0] * (max_k_B + 1)
 
-    # Calculate Pr(Bf=k) for each value of k
+    # Calculate Pr(B=k) for each value of k
     for k in range(0, max_k_B + 1):
         # Poisson(k=k, lambda=sum_expected_adversarial_blocks, location=0)
-        pr_Bf[k] = ss.poisson.pmf(k, (current_epoch - target_epoch + 1) * rate_malicious_blocks, 0)
+        pr_B[k] = ss.poisson.pmf(k, (current_epoch - target_epoch + 1) * rate_malicious_blocks, 0)
 
-        # Break if pr_Bf[k] becomes negligible
-        if k > 1 and pr_Bf[k] < negligible_threshold and pr_Bf[k] < pr_Bf[k-1]:
-            pr_Bf = pr_Bf[:(max_k_B:=k)+1]
+        # Break if pr_B[k] becomes negligible
+        if k > 1 and pr_B[k] < negligible_threshold and pr_B[k] < pr_B[k-1]:
+            pr_B = pr_B[:(max_k_B:=k)+1]
             break
 
 
     ####################
-    # Compute Mf
+    # Compute M
     ####################
 
     # Calculate the probability Pr(H>0)
@@ -107,66 +107,66 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     # Lower bound on the growth rate of the public chain
     rate_public_chain = Pr_H_gt_0 * exp_Z
 
-    # Initialize an array to store Pr(Mf=k)
-    pr_Mf = [0] * (max_k_M + 1)
+    # Initialize an array to store Pr(M=k)
+    pr_M = [0] * (max_k_M + 1)
 
-    # Calculate Pr(Mf = k) for each value of k
+    # Calculate Pr(M = k) for each value of k
     for k in range(0, max_k_M + 1):
-        # Calculate Pr(Mf_i = k) for each i and find the maximum
+        # Calculate Pr(M_i = k) for each i and find the maximum
         for i in range(max_i_M, 0, -1):
             lambda_B_i = i * rate_malicious_blocks
             lambda_Z_i = i * rate_public_chain
             # Skellam(k=k, mu1=lambda_b_i, mu2=lambda_Z_i)
-            prob_Mf_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
+            prob_M_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
 
-            # Break if prob_Mf_i becomes negligible
-            if prob_Mf_i < negligible_threshold and prob_Mf_i < pr_Mf[k]:
+            # Break if prob_M_i becomes negligible
+            if prob_M_i < negligible_threshold and prob_M_i < pr_M[k]:
                 break # Note: to be checked, but breaking here didn't change output in simulation
 
-            # Take Pr(Mf=k) as the maximum over all i
-            pr_Mf[k] = max(pr_Mf[k], prob_Mf_i)
+            # Take Pr(M=k) as the maximum over all i
+            pr_M[k] = max(pr_M[k], prob_M_i)
 
-        # Break if pr_Mf[k] becomes negligible
-        if k > 1 and pr_Mf[k] < negligible_threshold and pr_Mf[k] < pr_Mf[k-1]:
-            pr_Mf = pr_Mf[:(max_k_M:=k)+1]
+        # Break if pr_M[k] becomes negligible
+        if k > 1 and pr_M[k] < negligible_threshold and pr_M[k] < pr_M[k-1]:
+            pr_M = pr_M[:(max_k_M:=k)+1]
             break
 
-    # pr_Mf[0] collects the probability of the adversary never catching up in the future.
-    pr_Mf[0] += 1 - sum(pr_Mf)
+    # pr_M[0] collects the probability of the adversary never catching up in the future.
+    pr_M[0] += 1 - sum(pr_M)
 
 
     ####################
     # Compute error probability upper bound 
     ####################
 
-    # Calculate cumulative sums for Lf, Bf, and Mf
-    cumsum_Lf = np.cumsum(pr_Lf)
-    cumsum_Bf = np.cumsum(pr_Bf)
-    cumsum_Mf = np.cumsum(pr_Mf)
+    # Calculate cumulative sums for L, B, and M
+    cumsum_L = np.cumsum(pr_L)
+    cumsum_B = np.cumsum(pr_B)
+    cumsum_M = np.cumsum(pr_M)
 
     # The observed chain has added weight equal to number of blocks since added
     k = sum(chain[target_epoch:current_epoch])
 
     # Calculate pr_error[k] for the observed added weight
     # Performs a convolution over the step probability vectors
-    sum_Lf_ge_k = cumsum_Lf[-1]
+    sum_L_ge_k = cumsum_L[-1]
     if k > 0:
-        sum_Lf_ge_k -= cumsum_Lf[min(k - 1, max_k_L)] 
+        sum_L_ge_k -= cumsum_L[min(k - 1, max_k_L)] 
     double_sum = 0.0
 
     for l in range(0, k):
-        sum_Bf_ge_k_min_l = cumsum_Bf[-1] 
+        sum_B_ge_k_min_l = cumsum_B[-1] 
         if k - l - 1 > 0:  
-            sum_Bf_ge_k_min_l -= cumsum_Bf[min(k - l - 1, max_k_B)]
-        double_sum += pr_Lf[min(l, max_k_L)] * sum_Bf_ge_k_min_l
+            sum_B_ge_k_min_l -= cumsum_B[min(k - l - 1, max_k_B)]
+        double_sum += pr_L[min(l, max_k_L)] * sum_B_ge_k_min_l
 
         for b in range(0, k - l):
-            sum_Mf_ge_k_min_l_min_b = cumsum_Mf[-1] 
+            sum_M_ge_k_min_l_min_b = cumsum_M[-1] 
             if k - l - b - 1 > 0:
-                sum_Mf_ge_k_min_l_min_b -= cumsum_Mf[min(k - l - b - 1, max_k_M)]
-            double_sum += pr_Lf[min(l, max_k_L)] * pr_Bf[min(b, max_k_B)] * sum_Mf_ge_k_min_l_min_b
+                sum_M_ge_k_min_l_min_b -= cumsum_M[min(k - l - b - 1, max_k_M)]
+            double_sum += pr_L[min(l, max_k_L)] * pr_B[min(b, max_k_B)] * sum_M_ge_k_min_l_min_b
 
-    pr_error = sum_Lf_ge_k + double_sum
+    pr_error = sum_L_ge_k + double_sum
     
     # Get the probability of the adversary overtaking the observed weight
     # The conservative upper may exceed 1 in limit cases, so we cap the output.

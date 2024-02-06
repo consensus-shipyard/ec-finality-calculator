@@ -52,11 +52,11 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Parameters
     ####################
 
-    # Max k for which to calculate Pr(Lf=k)
+    # Max k for which to calculate Pr(L=k)
     max_k_L = 100
-    # Max k for which to calculate Pr(Bf=k)
+    # Max k for which to calculate Pr(B=k)
     max_k_B = (int) ((current_epoch - target_epoch) * blocks_per_epoch)
-    # Max k for which to calculate Pr(Mf=k)
+    # Max k for which to calculate Pr(M=k)
     max_k_M = 100
     # Maximum number of epochs for the L calculation (after which the pr become negligible)
     max_i_L = 25 # for running time purpose. Needs to be justified theoretically!        
@@ -70,38 +70,38 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     rate_malicious_blocks = blocks_per_epoch * byzantine_fraction # upper bound
     rate_honest_blocks = blocks_per_epoch - rate_malicious_blocks # lower bound
 
-    ## Calculate Lf
-    # Initialize an array to store the probabilities of Lf
-    pr_Lf = [0] * (max_k_L + 1)
+    ## Calculate L
+    # Initialize an array to store the probabilities of L
+    pr_L = [0] * (max_k_L + 1)
 
     # Calculate BpZ given chain for each of the relevant past subchains
     sum_chain_blocks_i = 0
 
-    # Calculate Pr(Lf_i = k_i) for each epoch i, starting from epoch `s` under evaluation
+    # Calculate Pr(L_i = k_i) for each epoch i, starting from epoch `s` under evaluation
     # and walking backwards to the last final tipset
     for i in range(target_epoch, target_epoch - max_i_L, -1):
         sum_chain_blocks_i += chain[i]
         max_relevant_BpZ = (int) (((target_epoch - i + 1) * 4 + 2) * blocks_per_epoch) # more than this, pr is negligible
         _, probabilities_based_on_BpZ = pr_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
         
-        # Calculate Pr(Lf=k) for each value of k
+        # Calculate Pr(L=k) for each value of k
         for k in range(0, max_k_L + 1):
-            prob_Lf_i = 0 if k + sum_chain_blocks_i >= len(probabilities_based_on_BpZ) else probabilities_based_on_BpZ[k + sum_chain_blocks_i]
-            pr_Lf[k] = max(pr_Lf[k], prob_Lf_i)
+            prob_L_i = 0 if k + sum_chain_blocks_i >= len(probabilities_based_on_BpZ) else probabilities_based_on_BpZ[k + sum_chain_blocks_i]
+            pr_L[k] = max(pr_L[k], prob_L_i)
 
     # As the adversarial lead is never negative, the missing probability is added to k=0
-    pr_Lf[0] += 1 - sum(pr_Lf)
+    pr_L[0] += 1 - sum(pr_L)
 
 
     ####################
-    # Compute Bf
+    # Compute B
     ####################
 
-    [values_of_kB, pr_Bf] = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
+    [values_of_kB, pr_B] = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
 
 
     ####################
-    # Compute Mf
+    # Compute M
     ####################
 
     # Calculate the probability Pr(H>0)
@@ -118,57 +118,57 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Lower bound on the growth rate of the public chain
     rate_public_chain = Pr_H_gt_0 * exp_Z
 
-    # Initialize an array to store Pr(Mf=k)
-    pr_Mf = [0] * (max_k_M + 1)
+    # Initialize an array to store Pr(M=k)
+    pr_M = [0] * (max_k_M + 1)
 
-    # Calculate Pr(Mf = k) for each value of k
+    # Calculate Pr(M = k) for each value of k
     for k in range(0, max_k_M + 1):
-        # Calculate Pr(Mf_i = k) for each i and find the maximum
+        # Calculate Pr(M_i = k) for each i and find the maximum
         for i in range(max_i_M, 0, -1):
             lambda_B_i = i * rate_malicious_blocks
             lambda_Z_i = i * rate_public_chain
             # Skellam(k=k, mu1=lambda_b_i, mu2=lambda_Z_i)
-            prob_Mf_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
+            prob_M_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
 
-            # Take Pr(Mf=k) as the maximum over all i
-            pr_Mf[k] = max(pr_Mf[k], prob_Mf_i)
+            # Take Pr(M=k) as the maximum over all i
+            pr_M[k] = max(pr_M[k], prob_M_i)
 
-    # pr_Mf[0] collects the probability of the adversary never catching up in the future.
-    pr_Mf[0] += 1 - sum(pr_Mf)
+    # pr_M[0] collects the probability of the adversary never catching up in the future.
+    pr_M[0] += 1 - sum(pr_M)
 
 
     ####################
     # Compute error probability upper bound
     ####################
 
-    # Calculate cumulative sums for Lf, Bf and Mf
-    cumsum_Lf = np.cumsum(pr_Lf)
-    cumsum_Bf = np.cumsum(pr_Bf)
-    cumsum_Mf = np.cumsum(pr_Mf)
+    # Calculate cumulative sums for L, B and M
+    cumsum_L = np.cumsum(pr_L)
+    cumsum_B = np.cumsum(pr_B)
+    cumsum_M = np.cumsum(pr_M)
 
     # The observed chain has added weight equal to number of blocks since added
     k = sum(chain[target_epoch:current_epoch])    
 
     # Calculate pr_error[k] for the observed added weight
     # Performs a convolution over the step probability vectors
-    sum_Lf_ge_k = cumsum_Lf[-1]
+    sum_L_ge_k = cumsum_L[-1]
     if k > 0:
-        sum_Lf_ge_k -= cumsum_Lf[min(k - 1, max_k_L)] 
+        sum_L_ge_k -= cumsum_L[min(k - 1, max_k_L)] 
     double_sum = 0.0
 
     for l in range(0, k):
-        sum_Bf_ge_k_min_l = cumsum_Bf[-1] 
+        sum_B_ge_k_min_l = cumsum_B[-1] 
         if k - l - 1 > 0:  
-            sum_Bf_ge_k_min_l -= cumsum_Bf[min(k - l - 1, max_k_B)]
-        double_sum += pr_Lf[min(l, max_k_L)] * sum_Bf_ge_k_min_l
+            sum_B_ge_k_min_l -= cumsum_B[min(k - l - 1, max_k_B)]
+        double_sum += pr_L[min(l, max_k_L)] * sum_B_ge_k_min_l
 
         for b in range(0, k - l):
-            sum_Mf_ge_k_min_l_min_b = cumsum_Mf[-1] 
+            sum_M_ge_k_min_l_min_b = cumsum_M[-1] 
             if k - l - b - 1 > 0:
-                sum_Mf_ge_k_min_l_min_b -= cumsum_Mf[min(k - l - b - 1, max_k_M)]
-            double_sum += pr_Lf[min(l, max_k_L)] * pr_Bf[min(b, max_k_B)] * sum_Mf_ge_k_min_l_min_b
+                sum_M_ge_k_min_l_min_b -= cumsum_M[min(k - l - b - 1, max_k_M)]
+            double_sum += pr_L[min(l, max_k_L)] * pr_B[min(b, max_k_B)] * sum_M_ge_k_min_l_min_b
 
-    pr_error = sum_Lf_ge_k + double_sum
+    pr_error = sum_L_ge_k + double_sum
 
     # Get the probability of the adversary overtaking the observed weight
     # The conservative upper may exceed 1 in limit cases, so we cap the output.
