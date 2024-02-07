@@ -81,7 +81,7 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     # Calculate Pr(B=k) for each value of k
     for k in range(0, max_k_B + 1):
         # Poisson(k=k, lambda=sum(f*e))
-        pr_B[k] = ss.poisson.pmf(k, (current_epoch - (target_epoch + 1)) * rate_malicious_blocks)
+        pr_B[k] = ss.poisson.pmf(k, (current_epoch - target_epoch) * rate_malicious_blocks)
 
         # Break if pr_B[k] becomes negligible
         if k > 1 and pr_B[k] < negligible_threshold and pr_B[k] < pr_B[k-1]:
