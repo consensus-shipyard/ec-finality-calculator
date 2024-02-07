@@ -95,7 +95,7 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
 
     # Calculate the probability Pr(H>0)
     # Poisson (k=0, lambda=h*e)
-    Pr_H_gt_0 = 1 - ss.poisson.pmf(0, rate_honest_blocks, 0)
+    Pr_H_gt_0 = 1 - ss.poisson.pmf(0, rate_honest_blocks)
 
     # Calculate E[Z]
     exp_Z = 0.0
