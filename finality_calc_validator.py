@@ -56,9 +56,9 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
         # and walking backwards to the last final tipset
         for i in range(target_epoch, current_epoch - 900, -1):
             sum_expected_adversarial_blocks_i += rate_malicious_blocks
-            sum_chain_blocks_i -= chain[i - 1]
-            # Poisson(k=k, lambda=sum_expected_adversarial_blocks_i, location=sum_chain_blocks_i)
-            pr_L_i = ss.poisson.pmf(k, sum_expected_adversarial_blocks_i, sum_chain_blocks_i)
+            sum_chain_blocks_i += chain[i - 1]
+            # Poisson(k=k, lambda=sum(f*e))
+            pr_L_i = ss.poisson.pmf(k + sum_chain_blocks_i, sum_expected_adversarial_blocks_i)
             # Take Pr(L=k) as the maximum over all i
             pr_L[k] = max(pr_L[k], pr_L_i)
         
@@ -80,8 +80,8 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
 
     # Calculate Pr(B=k) for each value of k
     for k in range(0, max_k_B + 1):
-        # Poisson(k=k, lambda=sum_expected_adversarial_blocks, location=0)
-        pr_B[k] = ss.poisson.pmf(k, (current_epoch - target_epoch + 1) * rate_malicious_blocks, 0)
+        # Poisson(k=k, lambda=sum(f*e))
+        pr_B[k] = ss.poisson.pmf(k, (current_epoch - (target_epoch + 1)) * rate_malicious_blocks)
 
         # Break if pr_B[k] becomes negligible
         if k > 1 and pr_B[k] < negligible_threshold and pr_B[k] < pr_B[k-1]:
@@ -94,14 +94,14 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     ####################
 
     # Calculate the probability Pr(H>0)
-    # Poisson (k=0, lambda=rate_honest_blocks, location=0)
+    # Poisson (k=0, lambda=h*e)
     Pr_H_gt_0 = 1 - ss.poisson.pmf(0, rate_honest_blocks, 0)
 
     # Calculate E[Z]
     exp_Z = 0.0
     for k in range(0, (int) (4 * blocks_per_epoch)):  # Range stems from the distribution's moments
-        # Poisson(k=k, lambda=rate_adv_blocks, location=0)
-        pmf = ss.poisson.pmf(k, rate_malicious_blocks, 0)
+        # Poisson(k=k, lambda=f*e)
+        pmf = ss.poisson.pmf(k, rate_malicious_blocks)
         exp_Z += ((rate_honest_blocks + k) / (2 ** k)) * pmf
 
     # Lower bound on the growth rate of the public chain
@@ -114,14 +114,12 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     for k in range(0, max_k_M + 1):
         # Calculate Pr(M_i = k) for each i and find the maximum
         for i in range(max_i_M, 0, -1):
-            lambda_B_i = i * rate_malicious_blocks
-            lambda_Z_i = i * rate_public_chain
-            # Skellam(k=k, mu1=lambda_b_i, mu2=lambda_Z_i)
-            prob_M_i = ss.skellam.pmf(k, lambda_B_i, lambda_Z_i)
+            # Skellam(k=k, mu1=n*e*f, mu2=n*E[Z])
+            prob_M_i = ss.skellam.pmf(k, i * rate_malicious_blocks, i * rate_public_chain)
 
             # Break if prob_M_i becomes negligible
             if prob_M_i < negligible_threshold and prob_M_i < pr_M[k]:
-                break # Note: to be checked, but breaking here didn't change output in simulation
+                break
 
             # Take Pr(M=k) as the maximum over all i
             pr_M[k] = max(pr_M[k], prob_M_i)
