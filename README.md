@@ -6,9 +6,7 @@ The algorithm allows users to make decisions on transaction confirmation based o
 
 ## Background
 
-FRC-0089: https://github.com/filecoin-project/FIPs/pull/941
-
-(to be replaced with link to final FRC)
+FRC-0089: https://github.com/filecoin-project/FIPs/blob/master/FRCs/frc-0089.md
 
 ## Requirements
 
