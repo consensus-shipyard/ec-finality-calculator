@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
  
 import finality_calc_validator as vf
+import helper_functions as hf
 
 ####################
 # Parameters
@@ -19,43 +20,6 @@ settlement_epochs = 30  # number of delay (settlement) epochs
 sampling_step = 1000 # skip step size for iteration
 plotting_step = 200 # skip epochs in plotting; does not affect error plotting
 datasets = ['march', 'november']
-
-####################
-# Helper function for generating plots
-####################
-
-def plot_err_prob_and_block_cnt(chain, errors, delay, block_limits=False, error_limits=False):
-    # Calculate the moving average for the block count
-    chain['Moving Average'] = chain['block_counts'].rolling(window=delay, min_periods=1).mean().shift(-(delay-1))
-
-    # Create the plot
-    fig, ax1 = plt.subplots(figsize=(10, 6))
-
-    # Format x-axis to show full numbers
-    ax1.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
-
-    # Plot the block counts
-    ax2 = ax1.twinx()
-    ax2.plot(chain['height'][::plotting_step], chain['block_counts'][::plotting_step], color='green', marker='x', linestyle='')
-    ax2.set_ylabel('# blocks at tipset', color='green')
-    ax2.plot(chain['height'][::plotting_step], chain['Moving Average'][::plotting_step], color='green', marker='', linestyle='-', label='30-slot moving average')
-    ax2.tick_params(axis='y', labelcolor='green')
-    ax2.legend(loc='upper right')
-    if block_limits:
-        ax2.set_ylim(block_limits)        
-
-    # Plot the error probabilities
-    ax1.plot(errors['Height'], errors['Error'], color='blue', marker='o', linestyle='-')
-    ax1.set_xlabel('Height')
-    ax1.set_ylabel('Error probability after 30 epochs', color='blue')
-    ax1.set_yscale('log')
-    ax1.tick_params(axis='y', labelcolor='blue')
-    if error_limits:
-        ax1.set_ylim(error_limits)
-
-    plt.title('Error probabilities and # blocks per tipset')
-    plt.grid(True)
-    return fig
 
 ####################
 # Run through each dataset, estimate error for sampled points, and export csv
@@ -110,5 +74,5 @@ error_max = max(df_results[dataset]['Error'].max() for dataset in datasets)
 for dataset in datasets:
     # Plot and export results
     figure_path = f'./evaluation/figures/{dataset}.png'
-    fig = plot_err_prob_and_block_cnt(df_chain[dataset], df_results[dataset], settlement_epochs, (block_count_min, block_count_max), (error_min, error_max))
+    fig = hf.plot_err_prob_and_block_cnt(df_chain[dataset], df_results[dataset], settlement_epochs, plotting_step, (block_count_min, block_count_max), (error_min, error_max))
     fig.savefig(figure_path)
