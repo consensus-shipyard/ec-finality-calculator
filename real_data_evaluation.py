@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
  
 import finality_calc_validator as vf
+import finality_calc_actor as af
 import helper_functions as hf
 
 ####################
@@ -42,7 +43,8 @@ for dataset in datasets:
 
     # Compute probabilities
     sample_indices = range(history_length + 1, df_chain[dataset].shape[0] - history_length, sampling_step)
-    pr_err = []
+    pr_err_v = []
+    pr_err_a = []
     for start_index in sample_indices:
         print("i: " + str(start_index) + "/" + str(sample_indices[-1]))
 
@@ -55,10 +57,11 @@ for dataset in datasets:
         target_epoch = len(subchain) - 1 - settlement_epochs
 
         # Calculate error probability
-        pr_err.append(vf.finality_calc_validator(subchain, blocks_per_epoch, byzantine_fraction, target_epoch + settlement_epochs, target_epoch))
+        pr_err_v.append(vf.finality_calc_validator(subchain, blocks_per_epoch, byzantine_fraction, target_epoch + settlement_epochs, target_epoch))
+        pr_err_a.append(af.finality_calc_actor(subchain, blocks_per_epoch, byzantine_fraction, target_epoch + settlement_epochs, target_epoch))
 
     # Create dataframe and export to csv
-    df_results[dataset] = pd.DataFrame({'Height': df_chain[dataset]['height'][sample_indices], 'Error': pr_err})
+    df_results[dataset] = pd.DataFrame({'Height': df_chain[dataset]['height'][sample_indices], 'Error (Validator)': pr_err_v, 'Error (Actor)': pr_err_a})
     df_results[dataset].to_csv(result_path, index=False)
 
 ####################
@@ -68,11 +71,16 @@ for dataset in datasets:
 # Find limits for plotting
 block_count_min = min(df_chain[dataset]['block_counts'].min() for dataset in datasets) 
 block_count_max = max(df_chain[dataset]['block_counts'].max() for dataset in datasets) 
-error_min = min(df_results[dataset]['Error'].min() for dataset in datasets) 
-error_max = max(df_results[dataset]['Error'].max() for dataset in datasets) 
+error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in datasets) 
+error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in datasets) 
+error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in datasets) 
+error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in datasets) 
+error_min = min(error_min_v, error_min_a)
+error_max = max(error_max_v, error_max_a)
 
 for dataset in datasets:
     # Plot and export results
     figure_path = f'./evaluation/figures/{dataset}.png'
-    fig = hf.plot_err_prob_and_block_cnt(df_chain[dataset], df_results[dataset], settlement_epochs, plotting_step, (block_count_min, block_count_max), (error_min, error_max))
+    fig = hf.plot_err_prob_and_block_cnt2(df_chain[dataset], df_results[dataset], settlement_epochs, plotting_step, (block_count_min, block_count_max), (error_min, error_max))
     fig.savefig(figure_path)
+    plt.close(fig)
