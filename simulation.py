@@ -78,3 +78,4 @@ for dataset in datasets:
     figure_path = f'./simulation/figures/{dataset}.png'
     fig = hf.plot_err_prob_and_block_cnt(df_chain[dataset], df_results[dataset], settlement_epochs, plotting_step, (block_count_min, block_count_max), (error_min, error_max))
     fig.savefig(figure_path)
+    plt.close(fig)
