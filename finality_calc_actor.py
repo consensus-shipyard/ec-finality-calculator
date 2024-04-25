@@ -5,17 +5,18 @@ import scipy.stats as ss
 def pr_poisson_conditional(lambda_T, t, c):
     if t < c:
         return 0.0  # Probability is 0 if t < c
+    
     prob_T_ge_c = 1.0 - ss.poisson.cdf(c - 1, lambda_T)  # P(T >= c)
+    prob_T_eq_t_and_T_ge_c = ss.poisson.pmf(t, lambda_T)  # P(T = t and T >= c)    
+    
     if prob_T_ge_c == 0.0:
         return 0.0  # Avoid division by zero
-    prob_T_equals_t_and_T_ge_c = ss.poisson.pmf(t, lambda_T)  # P(T = t and T >= c)
-    return prob_T_equals_t_and_T_ge_c / prob_T_ge_c
+    
+    return prob_T_eq_t_and_T_ge_c / prob_T_ge_c
 
-# calculate the probability of BpZ = B + Z base on the joint distribution of (B,Z | chain)
+# calculate the probability of BpZ = B + Z based on the joint distribution of (B,Z | chain)
 def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
-    max_BpZ = max_b + max_z
-    values_of_BpZ = np.arange(0, max_BpZ + 1)
-    probabilities_BpZ = np.zeros(max_b + max_z + 1)
+    probabilities_BpZ = [0] * (max_b + max_z + 1)
 
     num_epochs = end_epoch - start_epoch
     lambda_T = e * num_epochs
@@ -25,10 +26,10 @@ def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
     for z in range(max_z + 1):
         pr_of_z_given_chain = pr_poisson_conditional(lambda_T, z + num_of_observed_blocks, num_of_observed_blocks)
         for b in range(max_b + 1):
-            b_p_z = b + z
-            joint_prob = ss.poisson.pmf(z + num_of_observed_blocks - b, lambda_H,) * pr_of_z_given_chain
-            probabilities_BpZ[b_p_z] += joint_prob
-    return [values_of_BpZ, probabilities_BpZ]
+            # Sum the joint probability
+            probabilities_BpZ[b + z] += ss.poisson.pmf(z + num_of_observed_blocks - b, lambda_H,) * pr_of_z_given_chain
+    
+    return probabilities_BpZ
 
 def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
                             current_epoch: int, target_epoch: int) -> float:
@@ -59,9 +60,11 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Max k for which to calculate Pr(M=k)
     max_k_M = 100
     # Maximum number of epochs for the L calculation (after which the pr become negligible)
-    max_i_L = 25 # for running time purpose. Needs to be justified theoretically!        
+    max_i_L = 25    
     # Maximum number of epochs for the M calculation (after which the pr become negligible)
     max_i_M = 100
+    # Threshold at which the probability of an event is considered negligible
+    negligible_threshold = 10**-15    
 
 
     ####################
@@ -70,7 +73,10 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     rate_malicious_blocks = blocks_per_epoch * byzantine_fraction # upper bound
     rate_honest_blocks = blocks_per_epoch - rate_malicious_blocks # lower bound
 
-    ## Calculate L
+    ####################
+    # Compute L
+    ####################
+
     # Initialize an array to store the probabilities of L
     pr_L = [0] * (max_k_L + 1)
 
@@ -78,11 +84,11 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     sum_chain_blocks_i = 0
 
     # Calculate Pr(L_i = k_i) for each epoch i, starting from epoch `s` under evaluation
-    # and walking backwards to the last final tipset
+    # and walking backwards to the last final tipset (but stop after max_i_L epochs for perf)
     for i in range(target_epoch, target_epoch - max_i_L, -1):
         sum_chain_blocks_i += chain[i]
         max_relevant_BpZ = (int) (((target_epoch - i + 1) * 4 + 2) * blocks_per_epoch) # more than this, pr is negligible
-        _, probabilities_based_on_BpZ = pr_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
+        probabilities_based_on_BpZ = pr_BpZ_given_chain(chain, i - 1, target_epoch, blocks_per_epoch, byzantine_fraction, max_relevant_BpZ//2, max_relevant_BpZ//2)
         
         # Calculate Pr(L=k) for each value of k
         for k in range(0, max_k_L + 1):
@@ -97,7 +103,7 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Compute B
     ####################
 
-    [values_of_kB, pr_B] = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
+    pr_B = pr_BpZ_given_chain(chain, target_epoch, current_epoch, blocks_per_epoch, byzantine_fraction, max_k_B//2, max_k_B//2)
 
 
     ####################
@@ -132,6 +138,11 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
 
             # Take Pr(M=k) as the maximum over all i
             pr_M[k] = max(pr_M[k], prob_M_i)
+
+        # Break if pr_M[k] becomes negligible
+        if k > 1 and pr_M[k] < negligible_threshold and pr_M[k] < pr_M[k-1]:
+            pr_M = pr_M[:(max_k_M:=k)+1]
+            break
 
     # pr_M[0] collects the probability of the adversary never catching up in the future.
     pr_M[0] += 1 - sum(pr_M)
