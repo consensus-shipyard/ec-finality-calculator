@@ -177,10 +177,8 @@ def scatter_plot(x_values, y_values):
 ####################
 if __name__ == "__main__":
     #generate_chain_history(quality_range, instance_range, epoch_count, blocks_per_epoch)
-    #process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_evaluation, datasets_evaluation)
-    #process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_simulation, dataset_simulation)
-    #generate_error_plots(settlement_epochs, plotting_step, path_evaluation, dataset_evaluation)
-    #generate_error_plots(settlement_epochs, plotting_step, path_simulation, dataset_simulation)
-    #generate_scatter_plots(path_simulation, dataset_simulation)
-    process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_testing, dataset_testing)
-    generate_scatter_plots(path_testing, dataset_testing)
+    process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_evaluation, datasets_evaluation)
+    process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_simulation, dataset_simulation)
+    generate_error_plots(settlement_epochs, plotting_step, path_evaluation, dataset_evaluation)
+    generate_error_plots(settlement_epochs, plotting_step, path_simulation, dataset_simulation)
+    generate_scatter_plots(path_simulation, dataset_simulation)
