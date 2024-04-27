@@ -30,7 +30,7 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     # Maximum number of epochs for the calculation (after which the pr become negligible)
     max_i_M = 100
     # Threshold at which the probability of an event is considered negligible
-    negligible_threshold = 10**-20
+    negligible_threshold = 10**-25
 
 
     ####################
