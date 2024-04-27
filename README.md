@@ -14,14 +14,13 @@ Uses `numpy`, `scipy`, `pandas`, and `matplotlib`
 
 ## Content
  - `finality_calc_validator.py`: **the EC Finality Calculator** given full information available to nodes
- - `real_data_evaluation.py`: evaluation script that runs the EC finality calculator on chain data
- - `evaluation/`: evaluation data and results using default settings
  - `finality_calc_actor.py`: *experimental* calculator in more restrictive actor context
+ - `experiments/`: evaluation code, data, and results
 
 ## Usage
 
 * Run `finality_calc_validator.py` to try the calculator on generated data
-* Run `real_data_evaluation.py` to try the calculator on Filecoin chain traces
+* Run `experiments/evaluation.py` to try the calculator on simulation data and Filecoin chain traces
 * Call `finality_calc_validator()` using your chosen data and parameters
 
 ## License

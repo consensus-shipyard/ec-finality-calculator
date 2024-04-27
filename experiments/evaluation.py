@@ -5,6 +5,8 @@ import matplotlib.ticker as ticker
 import csv
 from multiprocessing import Pool
 
+import os, sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import finality_calc_validator as vf
 import finality_calc_actor as af
 
@@ -21,7 +23,7 @@ settlement_epochs = 30  # number of delay (settlement) epochs
 
 # Processing options
 sampling_step = 1000 # skip step size for iteration
-process_count = 24 # number of concurrent processes to use
+process_count = 12 # number of concurrent processes to use
 
 # Visualisation options
 plotting_step = 200 # skip epochs in plotting; does not affect error plotting
