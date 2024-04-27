@@ -14,29 +14,137 @@ import numpy as np
 # Parameters
 ####################
 
-# Calculator options
+# Default calculator options
 history_length = 900  # length of relevant history
 blocks_per_epoch = 5  # expected number of blocks per epoch
 byzantine_fraction = 0.3  # portion of adversary to tolerate
 settlement_epochs = 30  # number of delay (settlement) epochs
 
 # Processing options
+sampling_step = 1000 # skip step size for iteration
 process_count = 12 # number of concurrent processes to use
 
 # Visualisation options
-sampling_step = 1000 # skip step size for iteration
 plotting_step = 200 # skip epochs in plotting; does not affect error plotting
 
 # Bundled dataset: Evaluation
-dataset_evaluation = ['march', 'november']
-path_evaluation = './evaluation'
+evaluation_dataset = ['march', 'november']
+evaluation_path = './experiments/evaluation'
+evaluation_params = {
+    "history_length": history_length,
+    "blocks_per_epoch": blocks_per_epoch,
+    "byzantine_fraction": byzantine_fraction,
+    "settlement_epochs": settlement_epochs,
+    "sampling_step": sampling_step,
+    "path": evaluation_path,
+    "dataset": evaluation_dataset
+}
 
 # Bundled dataset: Simulation
-quality_range = range(80, 101, 2)
-instance_range = range(0, 6)
-epoch_count = 80000 
-dataset_simulation = [f"{quality}_{instance}" for quality in quality_range for instance in instance_range]
-path_simulation = './simulation'
+simulation_quality_range = range(80, 101, 2)
+simulation_instance_range = range(0, 6)
+simulation_epoch_count = 80000 
+simulation_dataset = [f"{quality}_{instance}" for quality in simulation_quality_range for instance in simulation_instance_range]
+simulation_path = './experiments/simulation'
+simulation_params = {
+    "history_length": history_length,
+    "blocks_per_epoch": blocks_per_epoch,
+    "byzantine_fraction": byzantine_fraction,
+    "settlement_epochs": settlement_epochs,
+    "sampling_step": sampling_step,
+    "path": simulation_path,
+    "dataset": simulation_dataset
+}
+
+# Bundled dataset: Scatter
+scatter_quality_range = range(80, 101, 2)
+scatter_instance_range = range(0, 6)
+scatter_epoch_count = 8000 
+scatter_dataset = [f"{quality}_{instance}" for quality in simulation_quality_range for instance in simulation_instance_range]
+scatter_path = './experiments/scatter'
+scatter_params = {
+    "history_length": history_length,
+    "blocks_per_epoch": blocks_per_epoch,
+    "byzantine_fraction": byzantine_fraction,
+    "settlement_epochs": settlement_epochs,
+    "sampling_step": sampling_step,
+    "path": scatter_path,
+    "dataset": scatter_dataset
+}
+
+
+
+####################
+# Helper function for generating plots
+####################
+
+def plot_err_prob_and_block_cnt(chain, errors, delay, plotting_step=200, block_limits=False, error_limits=False):
+    # Calculate the moving average for the block count
+    chain['Moving Average'] = chain['block_counts'].rolling(window=delay, min_periods=1).mean().shift(-(delay-1))
+
+    # Create the plot
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    # Format x-axis to show full numbers
+    ax1.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
+
+    # Plot the block counts
+    ax2 = ax1.twinx()
+    ax2.plot(chain['height'][::plotting_step], chain['block_counts'][::plotting_step], color='green', marker='x', linestyle='')
+    ax2.set_ylabel('# blocks at tipset', color='green')
+    ax2.plot(chain['height'][::plotting_step], chain['Moving Average'][::plotting_step], color='green', marker='', linestyle='-', label='30-slot moving average')
+    ax2.tick_params(axis='y', labelcolor='green')
+    ax2.legend(loc='upper right')
+    if block_limits:
+        ax2.set_ylim(block_limits)        
+
+    # Plot the error probabilities
+    ax1.plot(errors['Height'], errors['Error'], color='blue', marker='o', linestyle='-')
+    ax1.set_xlabel('Height')
+    ax1.set_ylabel('Error probability after 30 epochs', color='blue')
+    ax1.set_yscale('log')
+    ax1.tick_params(axis='y', labelcolor='blue')
+    if error_limits:
+        ax1.set_ylim(error_limits)
+
+    plt.title('Error probabilities and # blocks per tipset')
+    plt.grid(True)
+    return fig
+
+def plot_err_prob_and_block_cnt2(chain, errors, delay, plotting_step=200, block_limits=False, error_limits=False):
+    # Calculate the moving average for the block count
+    chain['Moving Average'] = chain['block_counts'].rolling(window=delay, min_periods=1).mean().shift(-(delay-1))
+
+    # Create the plot
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+
+    # Format x-axis to show full numbers
+    ax1.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
+
+    # Plot the block counts
+    ax2 = ax1.twinx()
+    ax2.plot(chain['height'][::plotting_step], chain['block_counts'][::plotting_step], color='green', marker='x', linestyle='')
+    ax2.set_ylabel('# blocks at tipset', color='green')
+    ax2.plot(chain['height'][::plotting_step], chain['Moving Average'][::plotting_step], color='green', marker='', linestyle='-', label='30-slot moving average')
+    ax2.tick_params(axis='y', labelcolor='green')
+    ax2.legend(loc='upper right')
+    if block_limits:
+        ax2.set_ylim(block_limits)        
+
+    # Plot the error probabilities
+    ax1.plot(errors['Height'], errors['Error (Validator)'], color='blue', marker='o', linestyle='-')
+    ax1.plot(errors['Height'], errors['Error (Actor)'], color='purple', marker='o', linestyle='-')
+    ax1.set_xlabel('Height')
+    ax1.set_ylabel('Error probability after 30 epochs', color='blue')
+    ax1.set_yscale('log')
+    ax1.tick_params(axis='y', labelcolor='blue')
+    ax1.legend(['Validator', 'Actor'], loc='upper left')
+    if error_limits:
+        ax1.set_ylim(error_limits)
+
+    plt.title('Error probabilities and # blocks per tipset')
+    plt.grid(True)
+    return fig
 
 
 ####################
@@ -144,14 +252,16 @@ def generate_scatter_plots(path, dataset):
         df_results[table] = pd.read_csv(result_path)
     x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
 
-    y_values = np.array([df_results[table]['Error (Validator)'][0] for table in dataset])
+    y_values = np.array([np.mean(df_results[table]['Error (Validator)']) for table in dataset])
     fig = scatter_plot(x_values, y_values)    
     fig.savefig(f'{path}/figures/scatter_validator.png')
 
     for table in dataset:
         print(table + ": " + str(min(df_results[table]['Error (Validator)'])))
+        print(table + ": " + str(np.mean(df_results[table]['Error (Validator)'])))
+        print(table + ": " + str(df_results[table]['Error (Validator)'][0]))
 
-    y_values = np.array([df_results[table]['Error (Actor)'][0] for table in dataset])
+    y_values = np.array([np.mean(df_results[table]['Error (Actor)']) for table in dataset])
     fig = scatter_plot(x_values, y_values)    
     fig.savefig(f'{path}/figures/scatter_actor.png')
 
@@ -177,11 +287,15 @@ def scatter_plot(x_values, y_values):
 ####################
 if __name__ == "__main__":
     # Simulation
-    #generate_chain_history(quality_range, instance_range, epoch_count, blocks_per_epoch)
-    process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_simulation, dataset_simulation)
-    generate_error_plots2(settlement_epochs, plotting_step, path_simulation, dataset_simulation)
-    generate_scatter_plots(path_simulation, dataset_simulation)
+    #generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch)
+    #process_dataset(**simulation_params)
+    #generate_error_plots2(simulation_params['settlement_epochs'], plotting_step, simulation_params['path'], simulation_params['dataset'])
 
     # Evaluation
-    process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path_evaluation, dataset_evaluation)
-    generate_error_plots2(settlement_epochs, plotting_step, path_evaluation, dataset_evaluation)
+    #process_dataset(**evaluation_params)
+    #generate_error_plots2(evaluation_params['settlement_epochs'], plotting_step, evaluation_params['path'], evaluation_params['dataset'])
+
+    # Scatter
+    generate_chain_history(scatter_quality_range, scatter_instance_range, scatter_epoch_count, blocks_per_epoch)
+    process_dataset(**scatter_params)
+    generate_scatter_plots(scatter_params['path'], scatter_params['dataset'])
