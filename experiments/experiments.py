@@ -45,8 +45,8 @@ evaluation_params = {
 # Bundled dataset: Simulation
 simulation_quality_range = range(80, 101, 2)
 simulation_instance_range = range(0, 6)
-simulation_settlement_range = [20, 30, 40]
-simulation_epoch_count = 80000 
+simulation_settlement_range = [20, 30, 40] 
+simulation_epoch_count = 40000 
 simulation_dataset = [f"{quality}_{instance}" for quality in simulation_quality_range for instance in simulation_instance_range]
 simulation_path = './experiments/simulation'
 simulation_params = {
@@ -202,20 +202,23 @@ def generate_scatter_plots(path, dataset, settlement_epochs):
     for table in dataset:
         result_path = f'{path}/results/{table}_error_{settlement_epochs}.csv'
         df_results[table] = pd.read_csv(result_path)
-    x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
-
-    y_values = np.array([np.mean(df_results[table]['Error (Validator)']) for table in dataset])
-    fig = plot_scatter(x_values, y_values, settlement_epochs)    
-    fig.savefig(f'{path}/figures/scatter_validator_{settlement_epochs}.png')
-
-    for table in dataset:
         print(table + "/min: " + str(min(df_results[table]['Error (Validator)'])))
         print(table + "/mean: " + str(np.mean(df_results[table]['Error (Validator)'])))
         print(table + "/0: " + str(df_results[table]['Error (Validator)'][0]))
+    
+    x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
+
+    y_values = np.array([np.mean(df_results[table]['Error (Validator)']) for table in dataset])
+    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_mean.png')
+    
+    y_values = np.array([df_results[table]['Error (Validator)'][0] for table in dataset])
+    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_sample.png')
 
     y_values = np.array([np.mean(df_results[table]['Error (Actor)']) for table in dataset])
-    fig = plot_scatter(x_values, y_values)    
-    fig.savefig(f'{path}/figures/scatter_actor_{settlement_epochs}.png')
+    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_mean.png')
+
+    y_values = np.array([df_results[table]['Error (Actor)'][0] for table in dataset])
+    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_sample.png')    
 
 # Scatter plot for the given x and y values
 def plot_scatter(x_values, y_values, settlement_epochs=30):
@@ -241,13 +244,13 @@ def plot_scatter(x_values, y_values, settlement_epochs=30):
 
 if __name__ == "__main__":
     # Simulation
-    #generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch)
+    generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch, simulation_path)
     for settlement_epochs in simulation_settlement_range:
-        process_dataset(**simulation_params, settlement_epochs=settlement_epochs)
-    #for settlement_epochs in simulation_settlement_range:
-    #    generate_error_plots(settlement_epochs, plotting_step, simulation_params['path'], simulation_params['dataset'])
-    #    generate_scatter_plots(simulation_params['path'], simulation_params['dataset'], 30)
+       process_dataset(**simulation_params, settlement_epochs=settlement_epochs)
+    for settlement_epochs in simulation_settlement_range:
+       generate_error_plots(settlement_epochs, plotting_step, simulation_params['path'], simulation_params['dataset'])
+       generate_scatter_plots(simulation_params['path'], simulation_params['dataset'], settlement_epochs)
 
     # Evaluation
     process_dataset(**evaluation_params)
-    #generate_error_plots(evaluation_params['settlement_epochs'], plotting_step, evaluation_params['path'], evaluation_params['dataset'])
+    generate_error_plots(evaluation_params['settlement_epochs'], plotting_step, evaluation_params['path'], evaluation_params['dataset'])
