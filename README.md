@@ -20,7 +20,7 @@ Uses `numpy`, `scipy`, `pandas`, and `matplotlib`
 ## Usage
 
 * Run `finality_calc_validator.py` to try the calculator on generated data
-* Run `experiments/evaluation.py` to try the calculator on simulation data and Filecoin chain traces
+* Run `experiments/experiments.py` to try the calculator on simulation data and Filecoin chain traces
 * Call `finality_calc_validator()` using your chosen data and parameters
 
 ## License
