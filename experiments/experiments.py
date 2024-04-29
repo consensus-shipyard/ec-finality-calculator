@@ -144,8 +144,8 @@ def generate_error_plots(settlement_epochs, plotting_step, path, dataset):
         df_results[table] = pd.read_csv(result_path)
 
     # Find limits for plotting
-    block_count_min = min(df_chain[dataset]['block_counts'].min() for dataset in dataset) * 0.9
-    block_count_max = max(df_chain[dataset]['block_counts'].max() for dataset in dataset) * 1.1
+    block_count_min = 0
+    block_count_max = max(df_chain[dataset]['block_counts'][::plotting_step].max() for dataset in dataset) * 1.1
     error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in dataset) 
     error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
     error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
@@ -206,26 +206,28 @@ def generate_scatter_plots(path, dataset, settlement_epochs):
         print(table + "/mean: " + str(np.mean(df_results[table]['Error (Validator)'])))
         print(table + "/0: " + str(df_results[table]['Error (Validator)'][0]))
     
-    x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
+    error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in dataset) 
+    error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
+    error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
+    error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in dataset) 
+    error_min = min(error_min_v, error_min_a) * 0.8
+    error_max = max(error_max_v, error_max_a) * 1.2
+    error_limits = (error_min, error_max)
 
-    y_values = np.array([np.mean(df_results[table]['Error (Validator)']) for table in dataset])
-    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_mean.png')
-    
+    x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
+ 
     y_values = np.array([df_results[table]['Error (Validator)'][0] for table in dataset])
     plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_sample.png')
-
-    y_values = np.array([np.mean(df_results[table]['Error (Actor)']) for table in dataset])
-    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_mean.png')
 
     y_values = np.array([df_results[table]['Error (Actor)'][0] for table in dataset])
     plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_sample.png')    
 
 # Scatter plot for the given x and y values
-def plot_scatter(x_values, y_values, settlement_epochs=30):
+def plot_scatter(x_values, y_values, settlement_epochs=30, error_limits=False):
     fig = plt.figure()
 
     slope, intercept = np.polyfit(x_values, np.log(y_values), 1)  # Using log of y for linear fit if y is on log scale
-    trendline = np.exp(intercept + slope * x_values)    
+    trendline = np.exp(intercept + slope * x_values)
 
     plt.scatter(x_values, y_values, alpha=0.7)
     plt.plot(x_values, trendline, color='red', label='Trend Line')
@@ -235,6 +237,8 @@ def plot_scatter(x_values, y_values, settlement_epochs=30):
     plt.ylabel('Error Probability')
     plt.title(f'Finality values for different fill-rates after {settlement_epochs} epochs')
     plt.legend()
+    if error_limits:
+        plt.ylim(error_limits)
     plt.grid(True)
     return fig
 
