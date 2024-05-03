@@ -23,7 +23,7 @@ import finality_calc_actor as af
 history_length = 900  # length of relevant history
 blocks_per_epoch = 5  # expected number of blocks per epoch
 byzantine_fraction = 0.3  # portion of adversary to tolerate
-settlement_epochs = 30  # number of delay (settlement) epochs
+depth = 30  # number of delay (settlement) epochs
 
 # Processing options
 sampling_step = 1000 # skip step size for iteration
@@ -42,14 +42,14 @@ evaluation_params = {
     "history_length": history_length,
     "blocks_per_epoch": blocks_per_epoch,
     "byzantine_fraction": byzantine_fraction,
-    "settlement_epochs": settlement_epochs,
+    "settlement_range": [depth],
     "sampling_step": sampling_step,
     "path": evaluation_path,
     "dataset": evaluation_dataset
 }
 
 # Bundled dataset: Simulation
-simulation_quality_range = range(80, 101, 2)
+simulation_quality_range = range(80, 101, 4)
 simulation_instance_range = range(0, 6)
 simulation_settlement_range = [20, 30, 40, 50, 60, 70, 80]
 simulation_epoch_count = 40000 
@@ -59,6 +59,7 @@ simulation_params = {
     "history_length": history_length,
     "blocks_per_epoch": blocks_per_epoch,
     "byzantine_fraction": byzantine_fraction,
+    "settlement_range": simulation_settlement_range,
     "sampling_step": sampling_step,
     "path": simulation_path,
     "dataset": simulation_dataset
@@ -86,9 +87,9 @@ def generate_chain_history(quality_range, instance_range, epoch_count, blocks_pe
 ####################
 
 # Process the dataset in parallel
-def process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path, dataset):
+def process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_range, sampling_step, path, dataset):
     pool = Pool(processes=process_count)
-    args = [(history_length, blocks_per_epoch, byzantine_fraction, settlement_epochs, sampling_step, path, table) for table in dataset]
+    args = [(history_length, blocks_per_epoch, byzantine_fraction, depth, sampling_step, path, table) for table in dataset for depth in settlement_range]
     pool.starmap(process_table, args)
 
 # Run the actor and validator error probability calculation for each table in the dataset
@@ -110,7 +111,7 @@ def process_table(history_length, blocks_per_epoch, byzantine_fraction, settleme
     pr_err_v = []
     pr_err_a = []
     for start_index in sample_indices:
-        print(dataset + ": " + str(start_index) + "/" + str(sample_indices[-1]))
+        print(f"{dataset}_{settlement_epochs}: {start_index}/{sample_indices[-1]}")
 
         # Extract the subsequence
         end_index = start_index + history_length
@@ -137,7 +138,7 @@ def process_table(history_length, blocks_per_epoch, byzantine_fraction, settleme
 ####################
 
 # Processes dataset and generates error plots for each table
-def generate_error_plots(settlement_epochs, plotting_step, path, dataset):
+def generate_error_plots(path, dataset, settlement_epochs, plotting_step):
 
     df_chain = dict()
     df_results= dict()
@@ -248,14 +249,14 @@ def plot_scatter(x_values, y_values, settlement_epochs=30, error_limits=False):
     return fig
 
 # Plots error probability (y) vs settlement epochs (x) with lines for different chain qualities
-def generate_trend_plots(path, health_range, settlement_epoch_range, mode):
+def generate_trend_plots(path, health_range, instance_range, settlement_epoch_range, mode):
     x_values = settlement_epoch_range
     y_values = []
     for health in health_range:
         series = []
         for settlement_epochs in settlement_epoch_range:
             array = []
-            for instance in simulation_instance_range:
+            for instance in instance_range:
                 result_path = f'{path}/results/{health}_{instance}_error_{settlement_epochs}.csv'
                 data = pd.read_csv(result_path)
                 array.append(data[f'Error ({mode})'])
@@ -280,16 +281,15 @@ def generate_trend_plots(path, health_range, settlement_epoch_range, mode):
 ####################
 
 if __name__ == "__main__":
-    # Simulation
+    # # Simulation
     generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch, simulation_path)
-    for settlement_epochs in simulation_settlement_range:
-        process_dataset(**simulation_params, settlement_epochs=settlement_epochs)
-    for settlement_epochs in simulation_settlement_range:
-        generate_error_plots(settlement_epochs, plotting_step, simulation_params['path'], simulation_params['dataset'])
-        generate_scatter_plots(simulation_params['path'], simulation_params['dataset'], settlement_epochs)
-    generate_trend_plots(simulation_params['path'], [96], [20, 30, 40, 50, 60, 70, 80], 'Actor')
-    generate_trend_plots(simulation_params['path'], [96], [20, 30, 40, 50, 60], 'Validator')
+    process_dataset(**simulation_params)
+    for depth in simulation_settlement_range:
+        generate_error_plots(simulation_path, simulation_dataset, depth, plotting_step)
+        generate_scatter_plots(simulation_path, simulation_dataset, depth)
+    generate_trend_plots(simulation_path, [96], simulation_instance_range, simulation_settlement_range, 'Actor')
+    generate_trend_plots(simulation_path, [96], simulation_instance_range, [20, 30, 40, 50, 60], 'Validator')
 
-    # Evaluation
+    # # Evaluation
     process_dataset(**evaluation_params)
-    generate_error_plots(evaluation_params['settlement_epochs'], plotting_step, evaluation_params['path'], evaluation_params['dataset'])
+    generate_error_plots(evaluation_path, evaluation_dataset, depth, plotting_step)
