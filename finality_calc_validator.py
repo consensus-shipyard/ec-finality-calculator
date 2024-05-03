@@ -22,11 +22,11 @@ def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine
     ####################
 
     # Max k for which to calculate Pr(L=k)
-    max_k_L = 100
+    max_k_L = 400
     # Max k for which to calculate Pr(B=k)
     max_k_B = (int)((current_epoch - target_epoch) * blocks_per_epoch)
     # Max k for which to calculate Pr(M=k)
-    max_k_M = 100
+    max_k_M = 400
     # Maximum number of epochs for the calculation (after which the pr become negligible)
     max_i_M = 100
     # Threshold at which the probability of an event is considered negligible

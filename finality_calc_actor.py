@@ -54,15 +54,15 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     ####################
 
     # Max k for which to calculate Pr(L=k)
-    max_k_L = 100
+    max_k_L = 400
     # Max k for which to calculate Pr(B=k)
     max_k_B = (int) ((current_epoch - target_epoch) * blocks_per_epoch)
     # Max k for which to calculate Pr(M=k)
-    max_k_M = 100
+    max_k_M = 400
     # Maximum number of epochs for the L calculation (after which the pr become negligible)
     max_i_L = 25
     # Maximum number of epochs for the M calculation (after which the pr become negligible)
-    max_i_M = 100
+    max_i_M = 100 
     # Threshold at which the probability of an event is considered negligible
     negligible_threshold = 10**-25
 
@@ -164,7 +164,7 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Performs a convolution over the step probability vectors
     sum_L_ge_k = cumsum_L[-1]
     if k > 0:
-        sum_L_ge_k -= cumsum_L[min(k - 1, max_k_L)] 
+        sum_L_ge_k -= cumsum_L[min(k - 1, max_k_L)]
     double_sum = 0.0
 
     for l in range(0, k):
