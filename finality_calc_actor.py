@@ -60,7 +60,7 @@ def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fra
     # Max k for which to calculate Pr(M=k)
     max_k_M = 100
     # Maximum number of epochs for the L calculation (after which the pr become negligible)
-    max_i_L = 25    
+    max_i_L = 25
     # Maximum number of epochs for the M calculation (after which the pr become negligible)
     max_i_M = 100
     # Threshold at which the probability of an event is considered negligible

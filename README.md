@@ -1,4 +1,4 @@
-# Expected Consensus Finality Calculator
+# ECFC: Expected Consensus Finality Calculator
 
 Python demonstrator of an algorithm to determine the probability bound for replacement of a Filecoin tipset given chain history. 
 

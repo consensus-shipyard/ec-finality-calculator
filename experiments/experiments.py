@@ -1,9 +1,13 @@
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import csv
 from multiprocessing import Pool
+
+import pandas as pd
+import numpy as np
+
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+plt.rcParams['svg.fonttype'] = 'none'
+plt.rcParams['font.size'] = 8
 
 import os, sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -26,8 +30,10 @@ sampling_step = 1000 # skip step size for iteration
 process_count = 12 # number of concurrent processes to use
 
 # Visualisation options
-plotting_step = 200 # skip epochs in plotting; does not affect error plotting
+plotting_step = 400 # skip epochs in plotting; does not affect error plotting
 averaging_window = 30 # window size for moving average
+linewidth=1.0
+figure_size=(4.5, 3.5)
 
 # Bundled dataset: Evaluation
 evaluation_dataset = ['march', 'november']
@@ -45,7 +51,7 @@ evaluation_params = {
 # Bundled dataset: Simulation
 simulation_quality_range = range(80, 101, 2)
 simulation_instance_range = range(0, 6)
-simulation_settlement_range = [20, 30, 40] 
+simulation_settlement_range = [20, 30, 40, 50, 60, 70, 80]
 simulation_epoch_count = 40000 
 simulation_dataset = [f"{quality}_{instance}" for quality in simulation_quality_range for instance in simulation_instance_range]
 simulation_path = './experiments/simulation'
@@ -150,14 +156,14 @@ def generate_error_plots(settlement_epochs, plotting_step, path, dataset):
     error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
     error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
     error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in dataset) 
-    error_min = min(error_min_v, error_min_a) * 0.9
-    error_max = max(error_max_v, error_max_a) * 1.1
+    error_min = min(error_min_v, error_min_a) * 0.8
+    error_max = max(error_max_v, error_max_a) * 1.2
+    error_limits = (error_min, error_max)
 
     for table in dataset:
     # Plot and export results
-        figure_path = f'{path}/figures/{table}_{settlement_epochs}.png'
         fig = plot_err_prob_and_block_cnt(df_chain[table], df_results[table], settlement_epochs, plotting_step, (block_count_min, block_count_max), (error_min, error_max))
-        fig.savefig(figure_path)
+        fig.savefig(f'{path}/figures/{table}_{settlement_epochs}.svg')
         plt.close(fig)
 
 # Plot the error probabilities vs epoch for a given table
@@ -166,38 +172,36 @@ def plot_err_prob_and_block_cnt(chain, errors, settlement_epochs, plotting_step,
     chain['Moving Average'] = chain['block_counts'].rolling(window=averaging_window, min_periods=1).mean().shift(-(averaging_window-1))
 
     # Create the plot
-    fig, ax1 = plt.subplots(figsize=(10, 6))
+    fig, ax1 = plt.subplots(figsize=figure_size)
 
     # Format x-axis to show full numbers
     ax1.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
 
     # Plot the block counts
     ax2 = ax1.twinx()
-    ax2.plot(chain['height'][::plotting_step], chain['block_counts'][::plotting_step], color='green', marker='x', linestyle='')
-    ax2.set_ylabel('# blocks at tipset', color='green')
-    ax2.plot(chain['height'][::plotting_step], chain['Moving Average'][::plotting_step], color='green', marker='', linestyle='-', label='30-slot moving average')
+    ax2.plot(chain['height'][::plotting_step], chain['block_counts'][::plotting_step], color='green', marker='x', linestyle='', markersize=3, alpha=0.7, label='Block count')
+    ax2.set_ylabel('Number of blocks at height', color='green')
+    ax2.plot(chain['height'][::plotting_step], chain['Moving Average'][::plotting_step], color='green', marker='', linestyle='-', linewidth=linewidth, alpha=0.7, label='30-slot moving average')
     ax2.tick_params(axis='y', labelcolor='green')
-    ax2.legend(loc='upper right')
     if block_limits:
         ax2.set_ylim(block_limits)        
 
     # Plot the error probabilities
-    ax1.plot(errors['Height'], errors['Error (Validator)'], color='blue', marker='o', linestyle='-')
-    ax1.plot(errors['Height'], errors['Error (Actor)'], color='purple', marker='o', linestyle='-')
+    ax1.plot(errors['Height'], errors['Error (Validator)'], color='blue', marker='o', markersize=2, linestyle='-', linewidth=linewidth, alpha=0.7)
+    ax1.plot(errors['Height'], errors['Error (Actor)'], color='purple', marker='o', markersize=2, linestyle='-', linewidth=linewidth, alpha=0.7)
     ax1.set_xlabel('Height')
-    ax1.set_ylabel(f'Error probability after {settlement_epochs} epochs', color='blue')
+    ax1.set_ylabel(f'Error probability', color='blue')
     ax1.set_yscale('log')
     ax1.tick_params(axis='y', labelcolor='blue')
     ax1.legend(['Validator', 'Actor'], loc='upper left')
     if error_limits:
         ax1.set_ylim(error_limits)
 
-    plt.title('Error probabilities and # blocks per tipset')
     plt.grid(True)
     return fig
 
-# Processes dataset and generates scatter plot over the different fill rates
-def generate_scatter_plots(path, dataset, settlement_epochs):
+# Processes dataset and generates scatter plot over the different health levels
+def generate_scatter_plots(path, dataset, settlement_epochs, error_limits=False):
     df_results = dict()
     for table in dataset:
         result_path = f'{path}/results/{table}_error_{settlement_epochs}.csv'
@@ -206,41 +210,70 @@ def generate_scatter_plots(path, dataset, settlement_epochs):
         print(table + "/mean: " + str(np.mean(df_results[table]['Error (Validator)'])))
         print(table + "/0: " + str(df_results[table]['Error (Validator)'][0]))
     
-    error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in dataset) 
-    error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
-    error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
-    error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in dataset) 
-    error_min = min(error_min_v, error_min_a) * 0.8
-    error_max = max(error_max_v, error_max_a) * 1.2
-    error_limits = (error_min, error_max)
+    if not error_limits:
+        error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in dataset) 
+        error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
+        error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
+        error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in dataset) 
+        error_min = min(error_min_v, error_min_a) * 0.8
+        error_max = max(error_max_v, error_max_a) * 1.2
+        error_limits = (error_min, error_max)
 
     x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
  
     y_values = np.array([df_results[table]['Error (Validator)'][0] for table in dataset])
-    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_sample.png')
+    fig = plot_scatter(x_values, y_values, settlement_epochs)
+    fig.savefig(f'{path}/figures/scatter_validator_{settlement_epochs}_sample.svg')
 
     y_values = np.array([df_results[table]['Error (Actor)'][0] for table in dataset])
-    plot_scatter(x_values, y_values, settlement_epochs).savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_sample.png')    
+    fig = plot_scatter(x_values, y_values, settlement_epochs)
+    fig.savefig(f'{path}/figures/scatter_actor_{settlement_epochs}_sample.svg')    
 
 # Scatter plot for the given x and y values
 def plot_scatter(x_values, y_values, settlement_epochs=30, error_limits=False):
-    fig = plt.figure()
-
     slope, intercept = np.polyfit(x_values, np.log(y_values), 1)  # Using log of y for linear fit if y is on log scale
     trendline = np.exp(intercept + slope * x_values)
 
+    fig = plt.figure(figsize=figure_size)
     plt.scatter(x_values, y_values, alpha=0.7)
-    plt.plot(x_values, trendline, color='red', label='Trend Line')
+    plt.plot(x_values, trendline, color='red')
     plt.xscale('linear')
     plt.yscale('log')
-    plt.xlabel('Chain fill rate')
-    plt.ylabel('Error Probability')
-    plt.title(f'Finality values for different fill-rates after {settlement_epochs} epochs')
-    plt.legend()
+    plt.xlabel('Chain health')
+    plt.ylabel('Error probability')
+    plt.gca().yaxis.set_minor_locator(ticker.NullLocator())
     if error_limits:
         plt.ylim(error_limits)
     plt.grid(True)
     return fig
+
+# Plots error probability (y) vs settlement epochs (x) with lines for different chain qualities
+def generate_trend_plots(path, health_range, settlement_epoch_range, mode):
+    x_values = settlement_epoch_range
+    y_values = []
+    for health in health_range:
+        series = []
+        for settlement_epochs in settlement_epoch_range:
+            array = []
+            for instance in simulation_instance_range:
+                result_path = f'{path}/results/{health}_{instance}_error_{settlement_epochs}.csv'
+                data = pd.read_csv(result_path)
+                array.append(data[f'Error ({mode})'])
+            series.append(np.median(array))
+        y_values.append(series)
+
+    fig = plt.figure(figsize=figure_size)
+    for series in y_values:
+        plt.plot(x_values, series, linestyle='-', marker='o', markersize=2, linewidth=linewidth, alpha=0.7)
+    plt.xscale('linear')
+    plt.yscale('log')
+    plt.xlabel('Settlement epochs')
+    plt.ylabel('Error probability')    
+    plt.xlim([min(x_values), max(x_values)])
+    plt.gca().yaxis.set_minor_locator(ticker.NullLocator())
+    plt.gca().xaxis.set_ticks(x_values)
+    #plt.legend(['{0:.2f}'.format(health/100) for health in health_range], loc='upper right')
+    fig.savefig(f'{path}/figures/trend_{mode.lower()}.svg')
 
 ####################
 # If run from console, process the bundled datasets
@@ -250,10 +283,12 @@ if __name__ == "__main__":
     # Simulation
     generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch, simulation_path)
     for settlement_epochs in simulation_settlement_range:
-       process_dataset(**simulation_params, settlement_epochs=settlement_epochs)
+        process_dataset(**simulation_params, settlement_epochs=settlement_epochs)
     for settlement_epochs in simulation_settlement_range:
-       generate_error_plots(settlement_epochs, plotting_step, simulation_params['path'], simulation_params['dataset'])
-       generate_scatter_plots(simulation_params['path'], simulation_params['dataset'], settlement_epochs)
+        generate_error_plots(settlement_epochs, plotting_step, simulation_params['path'], simulation_params['dataset'])
+        generate_scatter_plots(simulation_params['path'], simulation_params['dataset'], settlement_epochs)
+    generate_trend_plots(simulation_params['path'], [96], [20, 30, 40, 50, 60, 70, 80], 'Actor')
+    generate_trend_plots(simulation_params['path'], [96], [20, 30, 40, 50, 60], 'Validator')
 
     # Evaluation
     process_dataset(**evaluation_params)
