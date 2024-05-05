@@ -4,7 +4,8 @@ import scipy.stats as ss
 def finality_calc_validator(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
                             current_epoch: int, target_epoch: int) -> float:
     """
-    Compute the probability that a previous blockchain tipset gets replaced.
+    Compute the probability that a previous blockchain tipset gets replaced from the
+    perspective of a validator.
 
     Parameters:
     - chain (list[int]): List of block counts per epoch.

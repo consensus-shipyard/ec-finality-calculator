@@ -87,7 +87,8 @@ def generate_chain_history(quality_range, instance_range, epoch_count, blocks_pe
 ####################
 
 # Process the dataset in parallel
-def process_dataset(history_length, blocks_per_epoch, byzantine_fraction, settlement_range, sampling_step, path, dataset):
+
+def process_dataset_parallel(history_length, blocks_per_epoch, byzantine_fraction, settlement_range, sampling_step, path, dataset):
     pool = Pool(processes=process_count)
     args = [(history_length, blocks_per_epoch, byzantine_fraction, depth, sampling_step, path, table) for table in dataset for depth in settlement_range]
     pool.starmap(process_table, args)
@@ -202,7 +203,7 @@ def plot_err_prob_and_block_cnt(chain, errors, settlement_epochs, plotting_step,
     return fig
 
 # Processes dataset and generates scatter plot over the different health levels
-def generate_scatter_plots(path, dataset, settlement_epochs, error_limits=False):
+def generate_scatter_plots(path, dataset, settlement_epochs):
     df_results = dict()
     for table in dataset:
         result_path = f'{path}/results/{table}_error_{settlement_epochs}.csv'
@@ -211,15 +212,6 @@ def generate_scatter_plots(path, dataset, settlement_epochs, error_limits=False)
         print(table + "/mean: " + str(np.mean(df_results[table]['Error (Validator)'])))
         print(table + "/0: " + str(df_results[table]['Error (Validator)'][0]))
     
-    if not error_limits:
-        error_min_v = min(df_results[dataset]['Error (Validator)'].min() for dataset in dataset) 
-        error_max_v = max(df_results[dataset]['Error (Validator)'].max() for dataset in dataset) 
-        error_min_a = min(df_results[dataset]['Error (Actor)'].min() for dataset in dataset) 
-        error_max_a = max(df_results[dataset]['Error (Actor)'].max() for dataset in dataset) 
-        error_min = min(error_min_v, error_min_a) * 0.8
-        error_max = max(error_max_v, error_max_a) * 1.2
-        error_limits = (error_min, error_max)
-
     x_values = np.array([float(table.split('_')[0])/100 for table in dataset])
  
     y_values = np.array([df_results[table]['Error (Validator)'][0] for table in dataset])
@@ -273,7 +265,6 @@ def generate_trend_plots(path, health_range, instance_range, settlement_epoch_ra
     plt.xlim([min(x_values), max(x_values)])
     plt.gca().yaxis.set_minor_locator(ticker.NullLocator())
     plt.gca().xaxis.set_ticks(x_values)
-    #plt.legend(['{0:.2f}'.format(health/100) for health in health_range], loc='upper right')
     fig.savefig(f'{path}/figures/trend_{mode.lower()}.svg')
 
 ####################
@@ -283,13 +274,13 @@ def generate_trend_plots(path, health_range, instance_range, settlement_epoch_ra
 if __name__ == "__main__":
     # # Simulation
     generate_chain_history(simulation_quality_range, simulation_instance_range, simulation_epoch_count, blocks_per_epoch, simulation_path)
-    process_dataset(**simulation_params)
-    for depth in simulation_settlement_range:
-        generate_error_plots(simulation_path, simulation_dataset, depth, plotting_step)
-        generate_scatter_plots(simulation_path, simulation_dataset, depth)
+    process_dataset_parallel(**simulation_params)
+    generate_error_plots(simulation_path, simulation_dataset, 30, plotting_step)
+    generate_scatter_plots(simulation_path, simulation_dataset, 20)
+    generate_scatter_plots(simulation_path, simulation_dataset, 40)
     generate_trend_plots(simulation_path, [96], simulation_instance_range, simulation_settlement_range, 'Actor')
     generate_trend_plots(simulation_path, [96], simulation_instance_range, [20, 30, 40, 50, 60], 'Validator')
 
     # # Evaluation
-    process_dataset(**evaluation_params)
-    generate_error_plots(evaluation_path, evaluation_dataset, depth, plotting_step)
+    process_dataset_parallel(**evaluation_params)
+    generate_error_plots(evaluation_path, evaluation_dataset, 30, plotting_step)

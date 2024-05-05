@@ -2,7 +2,19 @@ import numpy as np
 import scipy.stats as ss
 
 # Calculate the conditional probability P(T = t | T >= c) for a Poisson random variable T.
-def pr_poisson_conditional(lambda_T, t, c):
+def pr_poisson_conditional(lambda_T: float, t: int, c: int) -> float:
+    """
+    Calculate the probability of a Poisson random variable T being equal to t,
+    conditional on T being greater than or equal to c.
+
+    Parameters:
+    lambda_T (float): The rate parameter of the Poisson distribution.
+    t (int): The value of T for which the probability is calculated.
+    c (int): The threshold value.
+
+    Returns:
+    float: The conditional probability P(T = t | T >= c).
+    """
     if t < c:
         return 0.0  # Probability is 0 if t < c
     
@@ -15,12 +27,28 @@ def pr_poisson_conditional(lambda_T, t, c):
     return prob_T_eq_t_and_T_ge_c / prob_T_ge_c
 
 # calculate the probability of BpZ = B + Z based on the joint distribution of (B,Z | chain)
-def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
+def pr_BpZ_given_chain(chain: list[int], start_epoch: int, end_epoch: int, blocks_per_epoch: float, byzantine_fraction: float, max_z: int, max_b: int) -> list[float]:
+    """
+    Calculates the probabilities of B + Z given a chain of blocks.
+
+    Args:
+        chain (list[int]): The chain of blocks.
+        start_epoch (int): The starting epoch.
+        end_epoch (int): The ending epoch.
+        blocks_per_epoch (float): The expected blocks per epoch.
+        byzantine_fraction (float): The byzantine fraction.
+        max_z (int): The maximum value of Z.
+        max_b (int): The maximum value of B.
+
+    Returns:
+        list[float]: The probabilities of B + Z.
+    """
+
     probabilities_BpZ = [0] * (max_b + max_z + 1)
 
     num_epochs = end_epoch - start_epoch
-    lambda_T = e * num_epochs
-    lambda_H = (1-f) * lambda_T
+    lambda_T = blocks_per_epoch * num_epochs
+    lambda_H = (1-byzantine_fraction) * lambda_T
     num_of_observed_blocks = sum(chain[start_epoch:end_epoch])
 
     for z in range(max_z + 1):
@@ -34,9 +62,10 @@ def pr_BpZ_given_chain(chain, start_epoch, end_epoch, e, f, max_z, max_b):
 def finality_calc_actor(chain: list[int], blocks_per_epoch: float, byzantine_fraction: float, 
                             current_epoch: int, target_epoch: int) -> float:
     """
-    Compute the probability that a previous blockchain tipset gets replaced.
+    Compute the probability that a previous blockchain tipset gets replaced from the 
+    perspective of an actor.
 
-    This code is EXPERIMENTAL and extremely slow. It is not part of our FRC.
+    This code is EXPERIMENTAL and slow. It is not part of FRC-0089.
 
     Parameters:
     - chain (list[int]): List of block counts per epoch.
